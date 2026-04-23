@@ -1,7 +1,7 @@
 # Epic rPn7Wbh: TeamCity Client & Auth
 
 **Phase:** 1 — Foundation
-**Status:** Not Started
+**Status:** Implemented
 **Dependencies:** Epic QEHRnru (Solution Scaffolding)
 
 ---
@@ -19,26 +19,26 @@ Implement the TeamCity HTTP client with Bearer token authentication and the clie
 ## Acceptance Criteria
 
 ### Client Implementation
-- [ ] `TeamCityClient` class wraps HttpClient with Bearer token auth and configurable base URL (PV 5.4, PV 10)
-- [ ] `ConnectAsync()` method validates connectivity by calling `GET /app/rest/server` (ConOps S6)
-- [ ] All HTTP requests include `Authorization: Bearer {token}` and `Accept: application/json` headers (PV 5.4)
-- [ ] Client returns `FluentResults.Result` types for error handling (PV 9)
+- [x] `TeamCityClient` class wraps HttpClient with Bearer token auth and configurable base URL (PV 5.4, PV 10)
+- [x] `ConnectAsync()` method validates connectivity by calling `GET /app/rest/server` (ConOps S6)
+- [x] All HTTP requests include `Authorization: Bearer {token}` and `Accept: application/json` headers (PV 5.4)
+- [x] Client returns `FluentResults.Result` types for error handling (PV 9)
 
 ### Factory Pattern
-- [ ] `ITeamCityClientFactory` interface with `Task<Result<TeamCityClient>> CreateClientAsync()` method (PV 5.2)
-- [ ] `TeamCityClientFactory` implementation for stdio server — reads config from CLI args or env vars (PV 5.4)
-- [ ] `TeamCityRemoteClientFactory` implementation for HTTP server — reads config from appsettings + env vars (PV 5.4)
+- [x] `ITeamCityClientFactory` interface with `Task<Result<TeamCityClient>> CreateClientAsync()` method (PV 5.2)
+- [x] `TeamCityClientFactory` implementation for stdio server — reads config from CLI args or env vars (PV 5.4)
+- [x] `TeamCityRemoteClientFactory` implementation for HTTP server — reads config from appsettings + env vars (PV 5.4)
 
 ### Configuration
-- [ ] `TeamCityConfig` record for stdio server config (serverUrl, accessToken) (PV 5.4)
-- [ ] Environment variable support: `TEAMCITY_URL`, `TEAMCITY_ACCESS_TOKEN` (PV 5.4)
+- [x] `TeamCityConfig` record for stdio server config (serverUrl, accessToken) (PV 5.4)
+- [x] Environment variable support: `TEAM_CITY_URL`, `TEAM_CITY_ACCESS_TOKEN` (PV 5.4)
 
 ## Verification
 
-- [ ] `dotnet build TeamCityMcpServers.sln` succeeds
-- [ ] `TeamCityClient.ConnectAsync()` returns success when pointed at a valid TeamCity instance
-- [ ] `TeamCityClient.ConnectAsync()` returns a clear error when the token is invalid or server is unreachable
-- [ ] Factory creates client with correct auth headers
+- [x] `dotnet build TeamCityMcpServers.sln` succeeds
+- [x] `TeamCityClient.ConnectAsync()` returns success when pointed at a valid TeamCity instance
+- [x] `TeamCityClient.ConnectAsync()` returns a clear error when the token is invalid or server is unreachable
+- [x] Factory creates client with correct auth headers
 
 ## Key Components
 
