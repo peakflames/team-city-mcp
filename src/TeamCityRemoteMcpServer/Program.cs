@@ -50,7 +50,8 @@ public class Program
 
             builder.Services
                 .AddMcpServer()
-                .WithHttpTransport();
+                .WithHttpTransport()
+                .WithTools<BuildTools>();
 
             var app = builder.Build();
 

@@ -23,7 +23,7 @@ Not Started → In Progress → Implemented → Complete
 |-------|------|------|--------|---------|-------------|-----------|
 | 1 | QEHRnru | Solution Scaffolding | Implemented | [handoff](session-handoffs/epic-QEHRnru-implemented.md) | 2026-04-23 | — |
 | 1 | rPn7Wbh | TeamCity Client & Auth | Implemented | [handoff](session-handoffs/epic-rPn7Wbh-implemented.md) | 2026-04-23 | — |
-| 2 | 8BeeXFT | Build Query Tools | Not Started | — | — | — |
+| 2 | 8BeeXFT | Build Query Tools | Implemented | [handoff](session-handoffs/epic-8BeeXFT-implemented.md) | 2026-04-23 | — |
 | 2 | uQKcsyL | Test Results & Artifact Tools | Not Started | — | — | — |
 | 3 | NOsupNS | Stdio Server | Not Started | — | — | — |
 | 3 | RVTI6Ye | HTTP Server & Container | Not Started | — | — | — |
