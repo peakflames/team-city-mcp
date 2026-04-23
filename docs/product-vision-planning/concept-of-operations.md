@@ -88,10 +88,10 @@ The PoC focuses on read operations — builds, test results, and artifacts — p
 
 **Steps:**
 
-1. Developer asks: "Get me the tracer.json from the latest build of FCS_Main"
+1. Developer asks: "Get me the build-report.json from the latest build of MyApp_Main"
 2. AI calls `list_builds` to find the latest successful build for the build type
 3. AI calls `list_build_artifacts` with the build ID to see available files
-4. AI calls `download_build_artifact` with build ID and artifact path "tracer.json"
+4. AI calls `download_build_artifact` with build ID and artifact path "build-report.json"
 5. AI presents or analyzes the artifact content
 
 **Outcome:** Developer has the artifact content in their AI conversation without manual download

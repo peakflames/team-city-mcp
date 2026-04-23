@@ -92,7 +92,7 @@ TeamCityMcpServers provides a standardized MCP interface to TeamCity CI/CD opera
 
 **Scenario 2 — Review test results:** A developer asks "what tests failed in build #4521?" The assistant fetches test occurrences, filters to failures, and presents a summary with test names, durations, and failure details.
 
-**Scenario 3 — Retrieve a build artifact:** A developer asks "get me the tracer.json from the latest successful build." The assistant lists artifacts, downloads the requested file, and presents or analyzes its contents.
+**Scenario 3 — Retrieve a build artifact:** A developer asks "get me the build-report.json from the latest successful build." The assistant lists artifacts, downloads the requested file, and presents or analyzes its contents.
 
 **Scenario 4 — Check build status across branches:** A developer asks "what's the build status on the release branch?" The assistant queries recent builds filtered by branch and returns a status summary.
 
