@@ -1,0 +1,32 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "TeamCityMcpServer (stdio)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/TeamCityMcpServer/bin/Debug/net9.0/TeamCityMcpServer.dll",
+            "args": ["-u", "${env:TEAM_CITY_URL}", "-t", "${env:TEAM_CITY_ACCESS_TOKEN}"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "TeamCityRemoteMcpServer (HTTP)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/TeamCityRemoteMcpServer/bin/Debug/net9.0/TeamCityRemoteMcpServer.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/TeamCityRemoteMcpServer",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "TEAM_CITY_URL": "${env:TEAM_CITY_URL}",
+                "TEAM_CITY_ACCESS_TOKEN": "${env:TEAM_CITY_ACCESS_TOKEN}"
+            },
+            "console": "integratedTerminal"
+        }
+    ]
+}
