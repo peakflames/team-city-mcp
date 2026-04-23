@@ -47,6 +47,16 @@ jobs:
           docker tag peakflames/teamcity-remote-mcp-server:${{ steps.get_version.outputs.version }} peakflames/teamcity-remote-mcp-server:latest
           docker push peakflames/teamcity-remote-mcp-server:latest
 
+      - name: Sync README to Docker Hub
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: peakflames/teamcity-remote-mcp-server
+          short-description: ${{ github.event.repository.description }}
+          readme-filepath: ./README.md
+          enable-url-completion: true
+
       - name: Notify on failure
         if: failure()
         run: |
