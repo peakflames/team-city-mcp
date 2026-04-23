@@ -11,7 +11,7 @@
 | Original Spec | As-Implemented | Reason |
 |---------------|----------------|--------|
 | "Serilog logging configured in both server projects" | Serilog packages added; no logger wiring in Program.cs yet | Epic spec only required packages to be present; actual DI wiring belongs in the server epics (NOsupNS, RVTI6Ye) |
-| (no mention of .gitignore) | `.gitignore` added | Repo had no ignore rules; build artifacts and `.server.pid` were untracked noise. Copied from BitbucketMcpServers reference project at `C:\projects\BitbucketMcpServers`. |
+| (no mention of .gitignore) | `.gitignore` added | Repo had no ignore rules; build artifacts and `.server.pid` were untracked noise. |
 
 ---
 
@@ -24,7 +24,7 @@
 - `src/TeamCityMcpServer/TeamCityMcpServer.csproj` — console, net9.0; Serilog 4.3.1, Serilog.Sinks.Console, Serilog.Extensions.Hosting 10.0.0
 - `src/TeamCityRemoteMcpServer/TeamCityRemoteMcpServer.csproj` — webapi, net9.0; Serilog.AspNetCore 10.0.0
 - `build.py` — supports build/run/start/stop/status; start/stop use `.server.pid` for HTTP server lifecycle
-- `.gitignore` — mirrored from BitbucketMcpServers, `.server.pid` substituted for `.bitbucket-mcp.pid`
+- `.gitignore` — mirrored from [BitbucketMcpServers](https://github.com/peakflames/BitbucketMcpServers), `.server.pid` substituted for `.bitbucket-mcp.pid`
 
 **Additional work beyond spec:**
 - Initialized git repo and pushed to `https://github.com/peakflames/team-city-mcp`
