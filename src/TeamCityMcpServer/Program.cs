@@ -66,7 +66,8 @@ public class Program
             builder.Services
                 .AddMcpServer()
                 .WithStdioServerTransport()
-                .WithTools<BuildTools>();
+                .WithTools<BuildTools>()
+                .WithTools<ProjectTools>();
 
             Log.Information("Starting TeamCityMcpServer...");
             builder.Build().Run();
