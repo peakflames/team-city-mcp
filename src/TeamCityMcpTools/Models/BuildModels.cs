@@ -34,18 +34,21 @@ public class BuildSummary
 
     [JsonPropertyName("webUrl")]
     public string? WebUrl { get; set; }
+
+    [JsonPropertyName("percentageComplete")]
+    public int? PercentageComplete { get; set; }
+
+    [JsonPropertyName("agent")]
+    public AgentInfo? Agent { get; set; }
+
+    [JsonPropertyName("buildType")]
+    public BuildTypeInfo? BuildType { get; set; }
 }
 
 public class BuildDetails : BuildSummary
 {
     [JsonPropertyName("duration")]
     public int? Duration { get; set; }
-
-    [JsonPropertyName("buildType")]
-    public BuildTypeInfo? BuildType { get; set; }
-
-    [JsonPropertyName("agent")]
-    public AgentInfo? Agent { get; set; }
 
     [JsonPropertyName("triggered")]
     public TriggeredInfo? Triggered { get; set; }
@@ -121,4 +124,91 @@ public class ProblemOccurrence
 
     [JsonPropertyName("details")]
     public string? Details { get; set; }
+}
+
+public class QueuedBuildListResponse
+{
+    [JsonPropertyName("count")]
+    public int? Count { get; set; }
+
+    [JsonPropertyName("build")]
+    public List<QueuedBuildSummary>? Build { get; set; }
+}
+
+public class QueuedBuildSummary
+{
+    [JsonPropertyName("id")]
+    public int Id { get; set; }
+
+    [JsonPropertyName("buildType")]
+    public QueuedBuildTypeInfo? BuildType { get; set; }
+
+    [JsonPropertyName("branchName")]
+    public string? BranchName { get; set; }
+
+    [JsonPropertyName("triggered")]
+    public TriggeredInfo? Triggered { get; set; }
+
+    [JsonPropertyName("waitReason")]
+    public string? WaitReason { get; set; }
+
+    [JsonPropertyName("webUrl")]
+    public string? WebUrl { get; set; }
+}
+
+public class QueuedBuildTypeInfo
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("projectName")]
+    public string? ProjectName { get; set; }
+}
+
+public class BuildStatusSummary
+{
+    [JsonPropertyName("id")]
+    public int Id { get; set; }
+
+    [JsonPropertyName("number")]
+    public string? Number { get; set; }
+
+    [JsonPropertyName("status")]
+    public string? Status { get; set; }
+
+    [JsonPropertyName("state")]
+    public string? State { get; set; }
+
+    [JsonPropertyName("statusText")]
+    public string? StatusText { get; set; }
+
+    [JsonPropertyName("percentageComplete")]
+    public int? PercentageComplete { get; set; }
+
+    [JsonPropertyName("branchName")]
+    public string? BranchName { get; set; }
+
+    [JsonPropertyName("webUrl")]
+    public string? WebUrl { get; set; }
+}
+
+public class ServerInfo
+{
+    [JsonPropertyName("version")]
+    public string? Version { get; set; }
+
+    [JsonPropertyName("buildNumber")]
+    public string? BuildNumber { get; set; }
+
+    [JsonPropertyName("startTime")]
+    public string? StartTime { get; set; }
+
+    [JsonPropertyName("currentTime")]
+    public string? CurrentTime { get; set; }
+
+    [JsonPropertyName("webUrl")]
+    public string? WebUrl { get; set; }
 }

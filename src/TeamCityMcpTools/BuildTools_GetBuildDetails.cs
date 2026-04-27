@@ -2,11 +2,11 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "get_build_details"),
+    [McpServerTool(Name = "teamcity_get_build"),
         Description(
             "Gets comprehensive details for a specific TeamCity build, including status, agent, " +
             "VCS revisions, and build problems. Returns a markdown document mixed with XML tags.")]
-    public async Task<string> GetBuildDetails(
+    public async Task<string> GetBuild(
         [Description("The TeamCity build ID (numeric).")]
         string buildId)
     {

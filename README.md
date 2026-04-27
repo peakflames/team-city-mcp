@@ -2,10 +2,31 @@
 
 This repository contains Model Context Protocol (MCP) server implementations for TeamCity CI/CD integration.
 
-MCP Tools are available for TeamCity operations, including:
+## Available MCP Tools
 
-- `list_builds`: Gets builds for a given build type/configuration.
-- `get_build_details`: Gets detailed information about a specific build.
+The server exposes the following tools for navigating TeamCity projects, inspecting build configurations, and querying build state.
+
+### Project & Build Configuration Tools
+
+| Tool | Description |
+|------|-------------|
+| `teamcity_list_projects` | Lists all projects in the TeamCity instance with their parent project relationships. |
+| `teamcity_get_project` | Gets details for a specific project by ID, including its child projects and build configurations. |
+| `teamcity_get_project_hierarchy` | Renders the TeamCity project tree as an indented markdown list. Supports optional root project and depth limit. |
+| `teamcity_list_build_types` | Lists build configurations (build types), optionally scoped to a specific project. |
+| `teamcity_get_build_type` | Gets full details for a specific build configuration, including VCS root info and a direct web URL. |
+
+### Build Tools
+
+| Tool | Description |
+|------|-------------|
+| `teamcity_list_builds` | Lists recent builds for a build type, with optional filters for project, branch, status, state, and count. |
+| `teamcity_get_build` | Gets comprehensive details for a specific build, including status, agent, VCS revisions, and build problems. |
+| `teamcity_get_build_status` | Gets a compact single-line status summary for a specific build (state, branch, progress, URL). |
+| `teamcity_get_running_builds` | Gets all currently running builds, optionally filtered by project. |
+| `teamcity_get_queued_builds` | Gets all builds currently waiting in the build queue, optionally filtered by project. |
+| `teamcity_search_builds` | Searches builds across projects using multiple filter criteria (project, build type, branch, status, state, agent, tags, date range). |
+| `teamcity_server_info` | Gets TeamCity server version and instance metadata. |
 
 ## Projects
 
@@ -109,7 +130,7 @@ claude mcp add --scope user --transport http teamcity-remote http://{{your-serve
 
 ## Contributing
 
-> TBD
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, build instructions, Docker publishing, and code standards.
 
 ## License
 
