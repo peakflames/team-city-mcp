@@ -2,19 +2,25 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "list_builds"),
+    [McpServerTool(Name = "teamcity_list_builds"),
         Description(
-            "Lists recent builds for a TeamCity build type, with optional filters for branch, " +
-            "status, and count. Returns a markdown table with columns: ID, Number, Status, Branch, Started, Finished, URL.")]
-    public async Task<string> ListBuilds(
+            "Lists recent builds for a TeamCity build type, with optional filters for project, " +
+            "branch, status, state, and count. Returns a markdown table with columns: ID, Number, Status, Branch, Started, Finished, URL.")]
+    public async Task<string> TeamCityListBuilds(
         [Description("The TeamCity build type ID (e.g., 'MyProject_Build').")]
         string buildTypeId,
+
+        [Description("Optional project ID to filter builds by project.")]
+        string? projectId = null,
 
         [Description("Optional branch name to filter builds by.")]
         string? branch = null,
 
         [Description("Optional build status filter: SUCCESS, FAILURE, or ERROR.")]
         string? status = null,
+
+        [Description("Optional build state filter: running, finished, or queued. Defaults to finished.")]
+        string? state = null,
 
         [Description("Maximum number of builds to return. Defaults to 10.")]
         int count = 10)
@@ -33,8 +39,10 @@ public partial class BuildTools
             {
                 $"buildType:id:{buildTypeId}",
                 $"count:{count}",
-                "state:finished"
+                $"state:{(string.IsNullOrWhiteSpace(state) ? "finished" : state.ToLowerInvariant())}"
             };
+            if (!string.IsNullOrWhiteSpace(projectId))
+                locatorParts.Add($"project:id:{projectId}");
             if (!string.IsNullOrWhiteSpace(branch))
                 locatorParts.Add($"branch:{branch}");
             if (!string.IsNullOrWhiteSpace(status))
@@ -61,10 +69,13 @@ public partial class BuildTools
             sb.AppendLine("# Builds");
             sb.AppendLine();
             sb.AppendLine($"**Build Type:** {buildTypeId}");
+            if (!string.IsNullOrWhiteSpace(projectId))
+                sb.AppendLine($"**Project Filter:** {projectId}");
             if (!string.IsNullOrWhiteSpace(branch))
                 sb.AppendLine($"**Branch Filter:** {branch}");
             if (!string.IsNullOrWhiteSpace(status))
                 sb.AppendLine($"**Status Filter:** {status}");
+            sb.AppendLine($"**State:** {(string.IsNullOrWhiteSpace(state) ? "finished" : state)}");
             sb.AppendLine($"**Count:** {buildList.Build.Count}");
             sb.AppendLine();
             sb.AppendLine("| ID | Number | Status | Branch | Started | Finished | URL |");

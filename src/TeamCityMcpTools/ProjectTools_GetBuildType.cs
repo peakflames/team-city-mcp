@@ -20,7 +20,7 @@ public partial class ProjectTools
 
         try
         {
-            var fields = "id,name,description,projectId,projectName,paused,webUrl,vcsRoots(vcsRootEntry(id,vcsRoot(id,name,vcsName)))";
+            var fields = "id,name,description,projectId,projectName,paused,webUrl,vcsRoots(vcsRootEntry(id,vcsRoot(id,name,vcsName))),triggers(trigger(id,type,properties(property(name,value)))),steps(step(id,name,type,disabled,properties(property(name,value)))),agentRequirements(agentRequirement(id,type,disabled,properties(property(name,value))))";
             var url = $"app/rest/buildTypes/id:{buildTypeId}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
@@ -73,6 +73,97 @@ public partial class ProjectTools
                 sb.AppendLine("## VCS Roots");
                 sb.AppendLine();
                 sb.AppendLine("No VCS roots configured.");
+                sb.AppendLine();
+            }
+
+            var triggers = bt.Triggers?.Trigger;
+            sb.AppendLine("## Triggers");
+            sb.AppendLine();
+            if (triggers is { Count: > 0 })
+            {
+                foreach (var trigger in triggers)
+                {
+                    sb.AppendLine($"### {trigger.Type ?? trigger.Id ?? "Unknown"} (`{trigger.Id}`)");
+                    sb.AppendLine();
+                    var props = trigger.Properties?.Property;
+                    if (props is { Count: > 0 })
+                    {
+                        sb.AppendLine("| Property | Value |");
+                        sb.AppendLine("|----------|-------|");
+                        foreach (var prop in props)
+                            sb.AppendLine($"| {prop.Name} | {prop.Value} |");
+                        sb.AppendLine();
+                    }
+                    else
+                    {
+                        sb.AppendLine("No properties.");
+                        sb.AppendLine();
+                    }
+                }
+            }
+            else
+            {
+                sb.AppendLine("No triggers configured.");
+                sb.AppendLine();
+            }
+
+            var steps = bt.Steps?.Step;
+            sb.AppendLine("## Build Steps");
+            sb.AppendLine();
+            if (steps is { Count: > 0 })
+            {
+                for (var i = 0; i < steps.Count; i++)
+                {
+                    var step = steps[i];
+                    var disabled = step.Disabled == true ? " *(disabled)*" : "";
+                    sb.AppendLine($"### Step {i + 1}: {(string.IsNullOrWhiteSpace(step.Name) ? step.Type : step.Name)}{disabled}");
+                    sb.AppendLine();
+                    sb.AppendLine($"- **Type**: {step.Type ?? "—"}");
+                    sb.AppendLine($"- **ID**: {step.Id ?? "—"}");
+                    var stepProps = step.Properties?.Property;
+                    if (stepProps is { Count: > 0 })
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine("| Property | Value |");
+                        sb.AppendLine("|----------|-------|");
+                        foreach (var prop in stepProps)
+                            sb.AppendLine($"| {prop.Name} | {prop.Value} |");
+                    }
+                    sb.AppendLine();
+                }
+            }
+            else
+            {
+                sb.AppendLine("No build steps configured.");
+                sb.AppendLine();
+            }
+
+            var agentReqs = bt.AgentRequirements?.AgentRequirement;
+            sb.AppendLine("## Agent Requirements");
+            sb.AppendLine();
+            if (agentReqs is { Count: > 0 })
+            {
+                foreach (var req in agentReqs)
+                {
+                    var disabled = req.Disabled == true ? " *(disabled)*" : "";
+                    sb.AppendLine($"### {req.Id ?? "Requirement"}{disabled}");
+                    sb.AppendLine();
+                    sb.AppendLine($"- **Type**: {req.Type ?? "—"}");
+                    var reqProps = req.Properties?.Property;
+                    if (reqProps is { Count: > 0 })
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine("| Property | Value |");
+                        sb.AppendLine("|----------|-------|");
+                        foreach (var prop in reqProps)
+                            sb.AppendLine($"| {prop.Name} | {prop.Value} |");
+                    }
+                    sb.AppendLine();
+                }
+            }
+            else
+            {
+                sb.AppendLine("No agent requirements configured.");
                 sb.AppendLine();
             }
 

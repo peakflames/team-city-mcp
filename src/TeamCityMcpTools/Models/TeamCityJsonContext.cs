@@ -21,6 +21,23 @@ namespace TeamCityMcpTools.Models;
 [JsonSerializable(typeof(VcsRootsWrapper))]
 [JsonSerializable(typeof(VcsRootEntry))]
 [JsonSerializable(typeof(VcsRootInfo))]
+[JsonSerializable(typeof(TriggersWrapper))]
+[JsonSerializable(typeof(TriggerInfo))]
+[JsonSerializable(typeof(TriggerPropertiesWrapper))]
+[JsonSerializable(typeof(TriggerProperty))]
+[JsonSerializable(typeof(StepsWrapper))]
+[JsonSerializable(typeof(StepInfo))]
+[JsonSerializable(typeof(StepPropertiesWrapper))]
+[JsonSerializable(typeof(StepProperty))]
+[JsonSerializable(typeof(AgentRequirementsWrapper))]
+[JsonSerializable(typeof(AgentRequirement))]
+[JsonSerializable(typeof(AgentRequirementPropertiesWrapper))]
+[JsonSerializable(typeof(AgentRequirementProperty))]
+[JsonSerializable(typeof(QueuedBuildListResponse))]
+[JsonSerializable(typeof(QueuedBuildSummary))]
+[JsonSerializable(typeof(QueuedBuildTypeInfo))]
+[JsonSerializable(typeof(BuildStatusSummary))]
+[JsonSerializable(typeof(ServerInfo))]
 public partial class TeamCityJsonContext : JsonSerializerContext
 {
 }
