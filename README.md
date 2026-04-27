@@ -130,7 +130,7 @@ claude mcp add --scope user --transport http teamcity-remote http://{{your-serve
 
 ## Contributing
 
-> TBD
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, build instructions, Docker publishing, and code standards.
 
 ## License
 
