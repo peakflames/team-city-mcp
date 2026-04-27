@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.2.0] - 2026-04-27
+
+### Added
+- `teamcity_list_projects` tool to list all TeamCity projects
+- `teamcity_get_project` tool to retrieve details of a specific project
+- `teamcity_get_project_hierarchy` tool to navigate the full project hierarchy
+- `teamcity_list_build_types` tool to list build configurations within a project
+- `teamcity_get_build_type` tool to retrieve build configuration details including steps, triggers, and agent requirements
+- `teamcity_get_build_status` tool to check the status of a specific build
+- `teamcity_get_queued_builds` tool to list builds currently in the queue
+- `teamcity_get_running_builds` tool to list builds currently running
+- `teamcity_search_builds` tool to search builds with filtering options
+- `teamcity_server_info` tool to retrieve TeamCity server information
+- Enriched build and build-type models with steps, triggers, and agent info
+
 ## [0.1.0] - 2026-04-23
 
 ### Added
