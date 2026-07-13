@@ -107,7 +107,7 @@ public class RevisionInfo
     [JsonPropertyName("version")]
     public string? Version { get; set; }
 
-    [JsonPropertyName("vcsBranch")]
+    [JsonPropertyName("vcsBranchName")]
     public string? VcsBranch { get; set; }
 
     [JsonPropertyName("vcs-root-instance")]

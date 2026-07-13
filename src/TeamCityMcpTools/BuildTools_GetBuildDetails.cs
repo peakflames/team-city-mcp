@@ -24,7 +24,7 @@ public partial class BuildTools
                          "buildType(name,projectName)," +
                          "agent(name)," +
                          "triggered(user(name),date,type)," +
-                         "revisions(revision(version,vcsBranch,vcs-root-instance(id,vcs-root-id,name,vcsName)))," +
+                         "revisions(revision(version,vcsBranchName,vcs-root-instance(id,vcs-root-id,name,vcsName)))," +
                          "problemOccurrences(count,problemOccurrence(type,details))";
             var url = $"app/rest/builds/id:{buildId}?fields={Uri.EscapeDataString(fields)}";
 
