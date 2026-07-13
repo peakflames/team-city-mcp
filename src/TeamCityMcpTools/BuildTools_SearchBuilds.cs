@@ -109,8 +109,8 @@ public partial class BuildTools
 
             foreach (var build in buildList.Build)
             {
-                var started = FormatTcDate(build.StartDate);
-                var finished = FormatTcDate(build.FinishDate);
+                var started = TeamCityFormat.FormatTcDate(build.StartDate);
+                var finished = TeamCityFormat.FormatTcDate(build.FinishDate);
                 var buildTypeName = build.BuildType?.Name ?? "—";
                 var projectName = build.BuildType?.ProjectName ?? "—";
                 sb.AppendLine($"| {build.Id} | {build.Number} | {build.Status ?? "—"} | {buildTypeName} | {projectName} | {build.BranchName ?? "default"} | {started} | {finished} | {build.WebUrl} |");

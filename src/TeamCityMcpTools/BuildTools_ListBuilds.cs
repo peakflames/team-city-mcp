@@ -83,8 +83,8 @@ public partial class BuildTools
 
             foreach (var build in buildList.Build)
             {
-                var started  = FormatTcDate(build.StartDate);
-                var finished = FormatTcDate(build.FinishDate);
+                var started  = TeamCityFormat.FormatTcDate(build.StartDate);
+                var finished = TeamCityFormat.FormatTcDate(build.FinishDate);
                 sb.AppendLine($"| {build.Id} | {build.Number} | {build.Status} | {build.BranchName ?? "default"} | {started} | {finished} | {build.WebUrl} |");
             }
 
@@ -94,13 +94,5 @@ public partial class BuildTools
         {
             return $"ERROR: Failed to list builds — {ex.Message}";
         }
-    }
-
-    // TeamCity date format: 20241119T102304+0000
-    private static string FormatTcDate(string? tcDate)
-    {
-        if (string.IsNullOrWhiteSpace(tcDate) || tcDate.Length < 15)
-            return tcDate ?? "—";
-        return $"{tcDate[..4]}-{tcDate[4..6]}-{tcDate[6..8]} {tcDate[9..11]}:{tcDate[11..13]}";
     }
 }

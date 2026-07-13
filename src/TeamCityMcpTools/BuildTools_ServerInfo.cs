@@ -38,8 +38,8 @@ public partial class BuildTools
             sb.AppendLine("|-------|-------|");
             sb.AppendLine($"| Version | {server.Version ?? "—"} |");
             sb.AppendLine($"| Build Number | {server.BuildNumber ?? "—"} |");
-            sb.AppendLine($"| Started | {FormatTcDate(server.StartTime)} |");
-            sb.AppendLine($"| Current Time | {FormatTcDate(server.CurrentTime)} |");
+            sb.AppendLine($"| Started | {TeamCityFormat.FormatTcDate(server.StartTime)} |");
+            sb.AppendLine($"| Current Time | {TeamCityFormat.FormatTcDate(server.CurrentTime)} |");
             sb.AppendLine($"| URL | {server.WebUrl ?? "—"} |");
 
             return sb.ToString();

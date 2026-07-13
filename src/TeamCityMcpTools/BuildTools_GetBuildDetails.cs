@@ -20,11 +20,11 @@ public partial class BuildTools
 
         try
         {
-            var fields = "id,number,status,state,branchName,startDate,finishDate,duration,webUrl," +
+            var fields = "id,number,status,state,branchName,startDate,finishDate,duration,webUrl,personal," +
                          "buildType(name,projectName)," +
                          "agent(name)," +
                          "triggered(user(name),date,type)," +
-                         "revisions(revision(version,vcsBranch))," +
+                         "revisions(revision(version,vcsBranch,vcs-root-instance(id,vcs-root-id)))," +
                          "problemOccurrences(count,problemOccurrence(type,details))";
             var url = $"app/rest/builds/id:{buildId}?fields={Uri.EscapeDataString(fields)}";
 
@@ -58,8 +58,10 @@ public partial class BuildTools
             sb.AppendLine($"| Status | {build.Status} |");
             sb.AppendLine($"| State | {build.State} |");
             sb.AppendLine($"| Branch | {build.BranchName ?? "default"} |");
-            sb.AppendLine($"| Started | {FormatTcDate(build.StartDate)} |");
-            sb.AppendLine($"| Finished | {FormatTcDate(build.FinishDate)} |");
+            if (build.Personal == true)
+                sb.AppendLine("| Personal | yes |");
+            sb.AppendLine($"| Started | {TeamCityFormat.FormatTcDate(build.StartDate)} |");
+            sb.AppendLine($"| Finished | {TeamCityFormat.FormatTcDate(build.FinishDate)} |");
 
             if (build.Duration.HasValue)
             {
@@ -72,7 +74,7 @@ public partial class BuildTools
             if (build.Triggered is not null)
             {
                 var triggeredBy = build.Triggered.User?.Name ?? build.Triggered.Type ?? "unknown";
-                sb.AppendLine($"| Triggered By | {triggeredBy} ({FormatTcDate(build.Triggered.Date)}) |");
+                sb.AppendLine($"| Triggered By | {triggeredBy} ({TeamCityFormat.FormatTcDate(build.Triggered.Date)}) |");
             }
 
             sb.AppendLine($"| URL | {build.WebUrl} |");
@@ -85,7 +87,11 @@ public partial class BuildTools
                 sb.AppendLine("## VCS Revisions");
                 sb.AppendLine();
                 foreach (var rev in revisions)
-                    sb.AppendLine($"- **{rev.VcsBranch ?? "unknown branch"}**: `{rev.Version}`");
+                {
+                    var vcsRootId = rev.VcsRootInstance?.VcsRootId;
+                    var vcsRootSuffix = string.IsNullOrWhiteSpace(vcsRootId) ? string.Empty : $" ({vcsRootId})";
+                    sb.AppendLine($"- **{rev.VcsBranch ?? "unknown branch"}**{vcsRootSuffix}: `{rev.Version}`");
+                }
                 sb.AppendLine();
             }
 

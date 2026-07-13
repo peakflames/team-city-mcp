@@ -47,6 +47,22 @@ namespace TeamCityMcpTools.Models;
 [JsonSerializable(typeof(TestOccurrence))]
 [JsonSerializable(typeof(FirstFailedWrapper))]
 [JsonSerializable(typeof(TestBuildRef))]
+[JsonSerializable(typeof(VcsRootInstanceRef))]
+[JsonSerializable(typeof(BuildProblemsResponse))]
+[JsonSerializable(typeof(BuildProblemOccurrence))]
+[JsonSerializable(typeof(ArtifactChildrenResponse))]
+[JsonSerializable(typeof(ArtifactFileEntry))]
+[JsonSerializable(typeof(ArtifactChildrenRef))]
+[JsonSerializable(typeof(ParameterListResponse))]
+[JsonSerializable(typeof(ParameterEntry))]
+[JsonSerializable(typeof(ChangesResponse))]
+[JsonSerializable(typeof(ChangeEntry))]
+[JsonSerializable(typeof(ChangeFilesWrapper))]
+[JsonSerializable(typeof(ChangeFileEntry))]
+[JsonSerializable(typeof(AuditEventsResponse))]
+[JsonSerializable(typeof(AuditEventEntry))]
+[JsonSerializable(typeof(AuditActionRef))]
+[JsonSerializable(typeof(AuditUserRef))]
 public partial class TeamCityJsonContext : JsonSerializerContext
 {
 }
