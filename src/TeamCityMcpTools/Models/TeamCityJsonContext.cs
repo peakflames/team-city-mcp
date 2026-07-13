@@ -38,6 +38,15 @@ namespace TeamCityMcpTools.Models;
 [JsonSerializable(typeof(QueuedBuildTypeInfo))]
 [JsonSerializable(typeof(BuildStatusSummary))]
 [JsonSerializable(typeof(ServerInfo))]
+[JsonSerializable(typeof(DependencyBuildListResponse))]
+[JsonSerializable(typeof(DependencyBuildNode))]
+[JsonSerializable(typeof(DependencyBuildTypeRef))]
+[JsonSerializable(typeof(SnapshotDependenciesWrapper))]
+[JsonSerializable(typeof(SnapshotDependencyEntry))]
+[JsonSerializable(typeof(TestOccurrencesResponse))]
+[JsonSerializable(typeof(TestOccurrence))]
+[JsonSerializable(typeof(FirstFailedWrapper))]
+[JsonSerializable(typeof(TestBuildRef))]
 public partial class TeamCityJsonContext : JsonSerializerContext
 {
 }
