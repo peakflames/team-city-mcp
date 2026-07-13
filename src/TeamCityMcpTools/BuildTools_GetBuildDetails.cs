@@ -24,7 +24,7 @@ public partial class BuildTools
                          "buildType(name,projectName)," +
                          "agent(name)," +
                          "triggered(user(name),date,type)," +
-                         "revisions(revision(version,vcsBranch,vcs-root-instance(id,vcs-root-id)))," +
+                         "revisions(revision(version,vcsBranch,vcs-root-instance(id,vcs-root-id,name,vcsName)))," +
                          "problemOccurrences(count,problemOccurrence(type,details))";
             var url = $"app/rest/builds/id:{buildId}?fields={Uri.EscapeDataString(fields)}";
 
@@ -88,9 +88,12 @@ public partial class BuildTools
                 sb.AppendLine();
                 foreach (var rev in revisions)
                 {
-                    var vcsRootId = rev.VcsRootInstance?.VcsRootId;
-                    var vcsRootSuffix = string.IsNullOrWhiteSpace(vcsRootId) ? string.Empty : $" ({vcsRootId})";
-                    sb.AppendLine($"- **{rev.VcsBranch ?? "unknown branch"}**{vcsRootSuffix}: `{rev.Version}`");
+                    var vcsRootName = rev.VcsRootInstance?.Name ?? rev.VcsRootInstance?.VcsRootId;
+                    var vcsType = rev.VcsRootInstance?.VcsName;
+                    var vcsRootLabel = string.IsNullOrWhiteSpace(vcsRootName)
+                        ? "unknown VCS root"
+                        : string.IsNullOrWhiteSpace(vcsType) ? vcsRootName : $"{vcsRootName} ({vcsType})";
+                    sb.AppendLine($"- **{vcsRootLabel}** — {rev.VcsBranch ?? "unknown branch"}: `{rev.Version}`");
                 }
                 sb.AppendLine();
             }

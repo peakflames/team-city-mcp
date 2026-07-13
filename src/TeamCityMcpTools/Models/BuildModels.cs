@@ -121,6 +121,12 @@ public class VcsRootInstanceRef
 
     [JsonPropertyName("vcs-root-id")]
     public string? VcsRootId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("vcsName")]
+    public string? VcsName { get; set; }
 }
 
 public class ProblemOccurrencesWrapper
