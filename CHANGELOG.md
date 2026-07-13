@@ -18,11 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `teamcity_get_build_parameters` tool to retrieve a build's resulting configuration parameters, with name-filtering and a display cap
 - `teamcity_get_build_changes` tool to retrieve the VCS changes (commits) included in a build
 - `teamcity_get_audit_log` tool to retrieve TeamCity audit log entries, optionally scoped to a build type or project
+- `teamcity_get_vcs_root` tool to retrieve full connection details (repo URL, branch spec, auth method) for a single VCS root, with secure properties masked
+- `teamcity_list_vcs_roots` tool to list VCS roots (id and name), optionally scoped to a project or filtered by name
 
 ### Changed
 - `teamcity_get_build` now also returns the `personal` flag and, per VCS revision, the associated VCS root instance/root ID
 
 ### Fixed
+- `teamcity_get_build` now shows the human-readable VCS root name instead of the internal VCS root ID
+- `teamcity_get_build` now correctly reports a revision's branch (was always showing "unknown branch" due to a wrong field name)
 
 ## [0.2.0] - 2026-04-27
 

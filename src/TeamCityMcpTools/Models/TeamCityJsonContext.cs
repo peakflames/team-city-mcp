@@ -63,6 +63,12 @@ namespace TeamCityMcpTools.Models;
 [JsonSerializable(typeof(AuditEventEntry))]
 [JsonSerializable(typeof(AuditActionRef))]
 [JsonSerializable(typeof(AuditUserRef))]
+[JsonSerializable(typeof(VcsRootListResponse))]
+[JsonSerializable(typeof(VcsRootSummary))]
+[JsonSerializable(typeof(VcsRootDetails))]
+[JsonSerializable(typeof(VcsRootProjectRef))]
+[JsonSerializable(typeof(VcsRootPropertiesWrapper))]
+[JsonSerializable(typeof(VcsRootProperty))]
 public partial class TeamCityJsonContext : JsonSerializerContext
 {
 }
