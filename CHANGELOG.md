@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `teamcity_get_build_dependency_tree` tool to walk a build's actual snapshot-dependency chain
+- `teamcity_get_build_type_dependency_graph` tool to render a build type's design-time dependency/dependent graph
+- `teamcity_get_build_tests` tool to retrieve test occurrences and failure detail for a build
+- `teamcity_get_test_history` tool to follow a single test's status across builds
 
 ### Changed
 
