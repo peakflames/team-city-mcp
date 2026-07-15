@@ -71,7 +71,7 @@ public partial class BuildTools
                 sb.AppendLine();
             }
 
-            return sb.ToString();
+            return TeamCityFormat.Clamp(sb.ToString());
         }
         catch (Exception ex)
         {

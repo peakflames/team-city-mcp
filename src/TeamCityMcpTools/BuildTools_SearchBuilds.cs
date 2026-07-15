@@ -116,7 +116,7 @@ public partial class BuildTools
                 sb.AppendLine($"| {build.Id} | {build.Number} | {build.Status ?? "—"} | {buildTypeName} | {projectName} | {build.BranchName ?? "default"} | {started} | {finished} | {build.WebUrl} |");
             }
 
-            return sb.ToString();
+            return TeamCityFormat.Clamp(sb.ToString());
         }
         catch (Exception ex)
         {

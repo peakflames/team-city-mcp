@@ -2,11 +2,14 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
+    private const int TestDetailsMaxChars = 1200;
+
     [McpServerTool(Name = "teamcity_get_build_tests"),
         Description(
             "Gets test occurrences for a specific build, including summary counts (passed/failed/ignored/muted) " +
             "and per-test detail such as failure text, whether it's a new failure, and the build it's been " +
-            "failing since. Defaults to failed tests only.")]
+            "failing since. Defaults to failed tests only. Tests whose failure text is identical (e.g. many " +
+            "tests failing on the same root cause) are grouped together to keep output compact.")]
     public async Task<string> GetBuildTests(
         [Description("The TeamCity build ID (numeric).")]
         string buildId,
@@ -15,8 +18,19 @@ public partial class BuildTools
         string filter = "failed",
 
         [Description("Maximum number of test occurrences to return. Defaults to 50.")]
-        int count = 50)
+        int count = 50,
+
+        [Description("How much failure text to show per failure group: 'compact' (default, one-line preview), " +
+                      "'full' (truncated failure text per group), or 'none' (table only, no failure text).")]
+        string detailsMode = "compact",
+
+        [Description("Maximum characters of failure text to show per group when detailsMode is 'full'. Defaults to 1200.")]
+        int detailsMaxChars = TestDetailsMaxChars)
     {
+        if (!string.Equals(detailsMode, "compact", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(detailsMode, "full", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(detailsMode, "none", StringComparison.OrdinalIgnoreCase))
+            return $"ERROR: Unknown detailsMode '{detailsMode}'. Use 'compact', 'full', or 'none'.";
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -79,11 +93,47 @@ public partial class BuildTools
                 return sb.ToString();
             }
 
+            // Group tests with identical failure text so a shared root cause (common when many tests fail
+            // the same way) is shown once instead of once per test.
+            var groupKeyToLetter = new Dictionary<string, string>();
+            var groupLetterToDetails = new Dictionary<string, string>();
+            var groupLetterToCount = new Dictionary<string, int>();
+            var testGroupLetters = new string?[occurrences.Count];
+
+            for (var i = 0; i < occurrences.Count; i++)
+            {
+                var details = occurrences[i].Details;
+                if (string.IsNullOrWhiteSpace(details))
+                    continue;
+
+                var key = TeamCityFormat.Fingerprint(details);
+                if (!groupKeyToLetter.TryGetValue(key, out var letter))
+                {
+                    letter = IndexToLetters(groupKeyToLetter.Count);
+                    groupKeyToLetter[key] = letter;
+                    groupLetterToDetails[letter] = details;
+                }
+
+                testGroupLetters[i] = letter;
+                groupLetterToCount[letter] = groupLetterToCount.GetValueOrDefault(letter) + 1;
+            }
+
+            var hasGroups = groupKeyToLetter.Count > 0;
+
             sb.AppendLine("## Test Occurrences");
             sb.AppendLine();
+            sb.Append("| # | Status | Test | Failing since |");
+            if (hasGroups)
+                sb.Append(" Group |");
+            sb.AppendLine();
+            sb.Append("|---|--------|------|----------------|");
+            if (hasGroups)
+                sb.Append("-------|");
+            sb.AppendLine();
 
-            foreach (var test in occurrences)
+            for (var i = 0; i < occurrences.Count; i++)
             {
+                var test = occurrences[i];
                 var icon = test.Status?.ToUpperInvariant() switch
                 {
                     "SUCCESS" => "✅",
@@ -92,25 +142,59 @@ public partial class BuildTools
                     _ => "❔"
                 };
                 var mutedTag = test.Muted == true ? " *(muted)*" : string.Empty;
-                var newTag = test.NewFailure == true ? " *(new failure)*" : string.Empty;
+                var newTag = test.NewFailure == true ? " *(new)*" : string.Empty;
+                var failingSince = test.FirstFailed?.Build is { } firstFailedBuild
+                    ? $"#{firstFailedBuild.Number}"
+                    : "—";
+                var duration = test.Duration.HasValue ? $" ({test.Duration.Value} ms)" : string.Empty;
 
-                sb.AppendLine($"### {icon} {test.Name}{mutedTag}{newTag}");
-                sb.AppendLine();
-                sb.AppendLine($"- **Status:** {test.Status}");
-                if (test.Duration.HasValue)
-                    sb.AppendLine($"- **Duration:** {test.Duration.Value} ms");
-                if (test.FirstFailed?.Build is { } firstFailedBuild)
-                    sb.AppendLine($"- **Failing since:** build #{firstFailedBuild.Number} (id:{firstFailedBuild.Id})");
-                if (!string.IsNullOrWhiteSpace(test.Details))
-                    sb.AppendLine($"- **Details:**\n  ```\n  {test.Details.Replace("\n", "\n  ")}\n  ```");
+                sb.Append($"| {i + 1} | {icon} {test.Status}{duration} | {test.Name}{mutedTag}{newTag} | {failingSince} |");
+                if (hasGroups)
+                    sb.Append($" {testGroupLetters[i] ?? "—"} |");
                 sb.AppendLine();
             }
+            sb.AppendLine();
 
-            return sb.ToString();
+            if (hasGroups && !string.Equals(detailsMode, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                sb.AppendLine("## Failure Groups");
+                sb.AppendLine();
+                sb.AppendLine("Tests with identical failure text are grouped once below instead of repeating it per test.");
+                sb.AppendLine();
+
+                foreach (var (letter, details) in groupLetterToDetails.OrderBy(kv => kv.Key))
+                {
+                    var groupCount = groupLetterToCount[letter];
+                    sb.AppendLine($"### Group {letter} — {groupCount} test(s)");
+                    sb.AppendLine();
+
+                    if (string.Equals(detailsMode, "full", StringComparison.OrdinalIgnoreCase))
+                        sb.AppendLine($"```\n{TeamCityFormat.Truncate(details, detailsMaxChars)}\n```");
+                    else
+                        sb.AppendLine($"```\n{TeamCityFormat.Preview(details)}\n```");
+
+                    sb.AppendLine();
+                }
+            }
+
+            return TeamCityFormat.Clamp(sb.ToString());
         }
         catch (Exception ex)
         {
             return $"ERROR: Failed to get build tests — {ex.Message}";
         }
+    }
+
+    private static string IndexToLetters(int index)
+    {
+        // 0 -> A, 1 -> B, ..., 25 -> Z, 26 -> AA, ...
+        var chars = new List<char>();
+        do
+        {
+            chars.Insert(0, (char)('A' + index % 26));
+            index = index / 26 - 1;
+        } while (index >= 0);
+
+        return new string(chars.ToArray());
     }
 }

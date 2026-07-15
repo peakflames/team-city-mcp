@@ -80,7 +80,7 @@ public partial class ProjectTools
                 sb.AppendLine($"| {when} | {evt.Action?.Name} | {user} | {comment} |");
             }
 
-            return sb.ToString();
+            return TeamCityFormat.Clamp(sb.ToString());
         }
         catch (Exception ex)
         {

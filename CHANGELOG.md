@@ -23,10 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - `teamcity_get_build` now also returns the `personal` flag and, per VCS revision, the associated VCS root instance/root ID
+- `teamcity_get_build_dependency_tree`, `teamcity_get_build_type_dependency_graph`, and `teamcity_get_build_type` now also surface artifact dependencies (previously only snapshot dependencies were shown), labeled `[snapshot]`/`[artifact]`/`[snapshot+artifact]`; artifact dependents remain unresolvable via the TeamCity API and are noted as such. Note: TeamCity's run-level `artifact-dependencies` field on a build is often unpopulated even for a resolved, successful artifact dependency — `teamcity_get_build_dependency_tree` now flags this and points to the design-time tools as a cross-check
+
+### Changed
+- `teamcity_get_build_tests` and `teamcity_get_build_log_failures` now group failed tests that share byte-identical failure text into a single "Failure Groups" section instead of repeating it per test, and add a `detailsMode` (`compact`/`full`/`none`) plus `detailsMaxChars` parameter to control how much failure text is shown per group
+- All markdown-returning tools now clamp their output to a safe character ceiling as a safety net, with a note when truncation occurs, so no single tool call can exceed the MCP client's token limit
+- Lowered `teamcity_search_build_log`'s and `teamcity_get_build_artifact_content`'s output byte caps to stay under the new shared ceiling
 
 ### Fixed
 - `teamcity_get_build` now shows the human-readable VCS root name instead of the internal VCS root ID
 - `teamcity_get_build` now correctly reports a revision's branch (was always showing "unknown branch" due to a wrong field name)
+- `teamcity_get_build_tests` and `teamcity_get_build_log_failures` no longer return unbounded output for builds with many failed tests or large captured test output — both previously had no output budget on a test's failure text and could exceed 200,000 characters in a single call
 
 ## [0.2.0] - 2026-04-27
 

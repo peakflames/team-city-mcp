@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    private const int LogSearchMaxOutputBytes = 60_000;
+    private const int LogSearchMaxOutputBytes = 40_000;
     private const long LogSearchMaxScanBytes = 100_000_000;
 
     [McpServerTool(Name = "teamcity_search_build_log"),
@@ -91,7 +91,7 @@ public partial class BuildTools
             if (scanCapHit)
                 sb.AppendLine($"\n**Note:** Stopped scanning after {LogSearchMaxScanBytes:N0} bytes without reaching the end of the log.");
 
-            return sb.ToString();
+            return TeamCityFormat.Clamp(sb.ToString());
         }
         catch (Exception ex)
         {

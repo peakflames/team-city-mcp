@@ -2,14 +2,14 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    private const int ArtifactContentMaxBytes = 200_000;
+    private const int ArtifactContentMaxBytes = 40_000;
     private const int ArtifactContentMaxLines = 500;
 
     [McpServerTool(Name = "teamcity_get_build_artifact_content"),
         Description(
             "Gets the text content of a single build artifact file (e.g. a log, report, or settings " +
             "digest). Refuses binary files and truncates large text files to the first "
-            + "200 KB / 500 lines, whichever is reached first.")]
+            + "40 KB / 500 lines, whichever is reached first.")]
     public async Task<string> GetBuildArtifactContent(
         [Description("The TeamCity build ID (numeric).")]
         string buildId,
@@ -88,7 +88,7 @@ public partial class BuildTools
             sb.AppendLine(displayText);
             sb.AppendLine("```");
 
-            return sb.ToString();
+            return TeamCityFormat.Clamp(sb.ToString());
         }
         catch (Exception ex)
         {
