@@ -4,9 +4,11 @@ public partial class ProjectTools
 {
     [McpServerTool(Name = "teamcity_get_build_type_dependency_graph"),
         Description(
-            "Renders the design-time snapshot-dependency configuration graph for a build type — " +
-            "distinct from any actual build run. Shows forward Dependencies (what this build type " +
-            "is configured to depend on) and/or reverse Dependents (what depends on it).")]
+            "Renders the design-time dependency configuration graph for a build type — both snapshot " +
+            "and artifact dependencies, distinct from any actual build run. Shows forward Dependencies " +
+            "(what this build type is configured to depend on, labeled [snapshot]/[artifact]) and/or " +
+            "reverse Dependents (what depends on it — snapshot dependents only, since TeamCity has no " +
+            "reverse locator for artifact dependencies).")]
     public async Task<string> GetBuildTypeDependencyGraph(
         [Description("The TeamCity build type ID (e.g., 'MyProject_Build').")]
         string buildTypeId,
@@ -67,6 +69,8 @@ public partial class ProjectTools
             {
                 sb.AppendLine("## Dependents (what depends on this)");
                 sb.AppendLine();
+                sb.AppendLine("*Note: only snapshot dependents are shown — TeamCity has no reverse locator for artifact dependencies.*");
+                sb.AppendLine();
                 sb.AppendLine($"- **{root.Name}** (`{root.Id}`)");
                 var visited = new HashSet<string>(StringComparer.Ordinal) { root.Id! };
                 await RenderReverseDependents(client, sb, root.Id!, 1, depth, visited);
@@ -92,39 +96,77 @@ public partial class ProjectTools
         if (currentDepth > maxDepth)
             return;
 
-        var fields = "count,snapshot-dependency(id,source-buildType(id,name,projectName))";
-        var url = $"app/rest/buildTypes/id:{Uri.EscapeDataString(buildTypeId)}/snapshot-dependencies?fields={Uri.EscapeDataString(fields)}";
+        var snapshotFields = "count,snapshot-dependency(id,source-buildType(id,name,projectName))";
+        var snapshotUrl = $"app/rest/buildTypes/id:{Uri.EscapeDataString(buildTypeId)}/snapshot-dependencies?fields={Uri.EscapeDataString(snapshotFields)}";
 
-        var response = await client.HttpClient.GetAsync(url);
-        if (!response.IsSuccessStatusCode)
+        var snapshotResponse = await client.HttpClient.GetAsync(snapshotUrl);
+        if (!snapshotResponse.IsSuccessStatusCode)
         {
             var indent = new string(' ', currentDepth * 2);
-            sb.AppendLine($"{indent}- ⚠️ Failed to load dependencies ({(int)response.StatusCode}: {response.ReasonPhrase})");
+            sb.AppendLine($"{indent}- ⚠️ Failed to load dependencies ({(int)snapshotResponse.StatusCode}: {snapshotResponse.ReasonPhrase})");
             return;
         }
 
-        var json = await response.Content.ReadAsStringAsync();
-        var list = JsonSerializer.Deserialize(json, TeamCityJsonContext.Default.SnapshotDependenciesWrapper);
+        var snapshotJson = await snapshotResponse.Content.ReadAsStringAsync();
+        var snapshotList = JsonSerializer.Deserialize(snapshotJson, TeamCityJsonContext.Default.SnapshotDependenciesWrapper);
 
-        if (list?.SnapshotDependency is null || list.SnapshotDependency.Count == 0)
+        var artifactFields = "count,artifact-dependency(id,disabled,source-buildType(id,name,projectName),properties(property(name,value)))";
+        var artifactUrl = $"app/rest/buildTypes/id:{Uri.EscapeDataString(buildTypeId)}/artifact-dependencies?fields={Uri.EscapeDataString(artifactFields)}";
+
+        var artifactResponse = await client.HttpClient.GetAsync(artifactUrl);
+        if (!artifactResponse.IsSuccessStatusCode)
+        {
+            var indent = new string(' ', currentDepth * 2);
+            sb.AppendLine($"{indent}- ⚠️ Failed to load artifact dependencies ({(int)artifactResponse.StatusCode}: {artifactResponse.ReasonPhrase})");
             return;
+        }
 
-        foreach (var dependency in list.SnapshotDependency)
+        var artifactJson = await artifactResponse.Content.ReadAsStringAsync();
+        var artifactList = JsonSerializer.Deserialize(artifactJson, TeamCityJsonContext.Default.ArtifactDependenciesWrapper);
+
+        var merged = new Dictionary<string, (DependencyBuildTypeRef Source, bool Snapshot, bool Artifact, string? Revision)>(StringComparer.Ordinal);
+
+        foreach (var dependency in snapshotList?.SnapshotDependency ?? [])
         {
             var source = dependency.SourceBuildType;
             if (source?.Id is null)
                 continue;
 
+            merged[source.Id] = merged.TryGetValue(source.Id, out var existing)
+                ? (source, true, existing.Artifact, existing.Revision)
+                : (source, true, false, null);
+        }
+
+        foreach (var dependency in artifactList?.ArtifactDependency ?? [])
+        {
+            var source = dependency.SourceBuildType;
+            if (source?.Id is null)
+                continue;
+
+            var revision = dependency.Properties?.Property?.FirstOrDefault(p => p.Name == "revisionName")?.Value;
+
+            merged[source.Id] = merged.TryGetValue(source.Id, out var existing)
+                ? (source, existing.Snapshot, true, revision)
+                : (source, false, true, revision);
+        }
+
+        if (merged.Count == 0)
+            return;
+
+        foreach (var (source, isSnapshot, isArtifact, revision) in merged.Values)
+        {
             var indent = new string(' ', currentDepth * 2);
-            var cyclic = visited.Contains(source.Id);
+            var cyclic = visited.Contains(source.Id!);
             var note = cyclic ? " *(cycle — already visited)*" : string.Empty;
-            sb.AppendLine($"{indent}- **{source.Name}** (`{source.Id}`){(string.IsNullOrWhiteSpace(source.ProjectName) ? string.Empty : $" — {source.ProjectName}")}{note}");
+            var kind = isSnapshot && isArtifact ? "snapshot+artifact" : isSnapshot ? "snapshot" : "artifact";
+            var revisionLabel = isArtifact && !string.IsNullOrWhiteSpace(revision) ? $": {revision}" : string.Empty;
+            sb.AppendLine($"{indent}- **{source.Name}** (`{source.Id}`){(string.IsNullOrWhiteSpace(source.ProjectName) ? string.Empty : $" — {source.ProjectName}")} [{kind}{revisionLabel}]{note}");
 
             if (cyclic)
                 continue;
 
-            visited.Add(source.Id);
-            await RenderForwardDependencies(client, sb, source.Id, currentDepth + 1, maxDepth, visited);
+            visited.Add(source.Id!);
+            await RenderForwardDependencies(client, sb, source.Id!, currentDepth + 1, maxDepth, visited);
         }
     }
 

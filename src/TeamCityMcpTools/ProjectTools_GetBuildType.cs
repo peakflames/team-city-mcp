@@ -4,8 +4,9 @@ public partial class ProjectTools
 {
     [McpServerTool(Name = "teamcity_get_build_type"),
         Description(
-            "Gets full details for a specific TeamCity build configuration, including VCS root info and a direct web URL. " +
-            "Returns a markdown document with build type metadata and VCS roots.")]
+            "Gets full details for a specific TeamCity build configuration, including VCS root info, snapshot and " +
+            "artifact dependencies, and a direct web URL. Returns a markdown document with build type metadata, " +
+            "VCS roots, and dependencies.")]
     public async Task<string> GetBuildType(
         [Description("The TeamCity build type ID (e.g., 'MyProject_Build').")]
         string buildTypeId)
@@ -20,7 +21,7 @@ public partial class ProjectTools
 
         try
         {
-            var fields = "id,name,description,projectId,projectName,paused,webUrl,vcsRoots(vcsRootEntry(id,vcsRoot(id,name,vcsName))),triggers(trigger(id,type,properties(property(name,value)))),steps(step(id,name,type,disabled,properties(property(name,value)))),agentRequirements(agentRequirement(id,type,disabled,properties(property(name,value))))";
+            var fields = "id,name,description,projectId,projectName,paused,webUrl,vcsRoots(vcsRootEntry(id,vcsRoot(id,name,vcsName))),triggers(trigger(id,type,properties(property(name,value)))),steps(step(id,name,type,disabled,properties(property(name,value)))),agentRequirements(agentRequirement(id,type,disabled,properties(property(name,value)))),snapshot-dependencies(snapshot-dependency(id,source-buildType(id,name,projectName))),artifact-dependencies(artifact-dependency(id,disabled,source-buildType(id,name,projectName),properties(property(name,value))))";
             var url = $"app/rest/buildTypes/id:{buildTypeId}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
@@ -73,6 +74,55 @@ public partial class ProjectTools
                 sb.AppendLine("## VCS Roots");
                 sb.AppendLine();
                 sb.AppendLine("No VCS roots configured.");
+                sb.AppendLine();
+            }
+
+            sb.AppendLine("## Dependencies");
+            sb.AppendLine();
+
+            var snapshotDeps = bt.SnapshotDependencies?.SnapshotDependency;
+            sb.AppendLine("### Snapshot");
+            sb.AppendLine();
+            if (snapshotDeps is { Count: > 0 })
+            {
+                sb.AppendLine("| Source Build Type | ID | Project |");
+                sb.AppendLine("|--------------------|-----|---------|");
+                foreach (var dep in snapshotDeps)
+                {
+                    var source = dep.SourceBuildType;
+                    sb.AppendLine($"| {source?.Name ?? "—"} | {source?.Id ?? "—"} | {source?.ProjectName ?? "—"} |");
+                }
+                sb.AppendLine();
+            }
+            else
+            {
+                sb.AppendLine("No snapshot dependencies configured.");
+                sb.AppendLine();
+            }
+
+            var artifactDeps = bt.ArtifactDependencies?.ArtifactDependency;
+            sb.AppendLine("### Artifact");
+            sb.AppendLine();
+            if (artifactDeps is { Count: > 0 })
+            {
+                sb.AppendLine("| Source Build Type | ID | Project | Path Rules | Revision | Disabled |");
+                sb.AppendLine("|--------------------|-----|---------|------------|----------|----------|");
+                foreach (var dep in artifactDeps)
+                {
+                    var source = dep.SourceBuildType;
+                    var props = dep.Properties?.Property;
+                    var pathRules = props?.FirstOrDefault(p => p.Name == "pathRules")?.Value ?? "—";
+                    var revisionName = props?.FirstOrDefault(p => p.Name == "revisionName")?.Value;
+                    var revisionValue = props?.FirstOrDefault(p => p.Name == "revisionValue")?.Value;
+                    var revision = revisionName is null ? "—" : string.IsNullOrWhiteSpace(revisionValue) ? revisionName : $"{revisionName} ({revisionValue})";
+                    var disabled = dep.Disabled == true ? "Yes" : "No";
+                    sb.AppendLine($"| {source?.Name ?? "—"} | {source?.Id ?? "—"} | {source?.ProjectName ?? "—"} | {pathRules} | {revision} | {disabled} |");
+                }
+                sb.AppendLine();
+            }
+            else
+            {
+                sb.AppendLine("No artifact dependencies configured.");
                 sb.AppendLine();
             }
 

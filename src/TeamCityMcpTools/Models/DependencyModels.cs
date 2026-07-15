@@ -59,3 +59,51 @@ public class SnapshotDependencyEntry
     [JsonPropertyName("source-buildType")]
     public DependencyBuildTypeRef? SourceBuildType { get; set; }
 }
+
+public class BuildDependenciesEnvelope
+{
+    [JsonPropertyName("snapshot-dependencies")]
+    public DependencyBuildListResponse? SnapshotDependencies { get; set; }
+
+    [JsonPropertyName("artifact-dependencies")]
+    public DependencyBuildListResponse? ArtifactDependencies { get; set; }
+}
+
+public class ArtifactDependenciesWrapper
+{
+    [JsonPropertyName("count")]
+    public int? Count { get; set; }
+
+    [JsonPropertyName("artifact-dependency")]
+    public List<ArtifactDependencyEntry>? ArtifactDependency { get; set; }
+}
+
+public class ArtifactDependencyEntry
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("disabled")]
+    public bool? Disabled { get; set; }
+
+    [JsonPropertyName("source-buildType")]
+    public DependencyBuildTypeRef? SourceBuildType { get; set; }
+
+    [JsonPropertyName("properties")]
+    public ArtifactDependencyPropertiesWrapper? Properties { get; set; }
+}
+
+public class ArtifactDependencyPropertiesWrapper
+{
+    [JsonPropertyName("property")]
+    public List<ArtifactDependencyProperty>? Property { get; set; }
+}
+
+public class ArtifactDependencyProperty
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("value")]
+    public string? Value { get; set; }
+}

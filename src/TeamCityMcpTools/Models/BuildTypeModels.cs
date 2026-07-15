@@ -46,6 +46,12 @@ public class BuildTypeDetails : BuildTypeSummary
 
     [JsonPropertyName("agentRequirements")]
     public AgentRequirementsWrapper? AgentRequirements { get; set; }
+
+    [JsonPropertyName("snapshot-dependencies")]
+    public SnapshotDependenciesWrapper? SnapshotDependencies { get; set; }
+
+    [JsonPropertyName("artifact-dependencies")]
+    public ArtifactDependenciesWrapper? ArtifactDependencies { get; set; }
 }
 
 public class StepsWrapper
