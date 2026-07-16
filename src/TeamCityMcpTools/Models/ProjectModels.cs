@@ -43,6 +43,9 @@ public class ProjectDetails
 
     [JsonPropertyName("buildTypes")]
     public BuildTypeListResponse? BuildTypes { get; set; }
+
+    [JsonPropertyName("templates")]
+    public TemplatesWrapper? Templates { get; set; }
 }
 
 public class ParentProjectRef
@@ -52,4 +55,46 @@ public class ParentProjectRef
 
     [JsonPropertyName("name")]
     public string? Name { get; set; }
+}
+
+public class ProjectFeaturesWrapper
+{
+    [JsonPropertyName("count")]
+    public int? Count { get; set; }
+
+    [JsonPropertyName("projectFeature")]
+    public List<ProjectFeatureEntry>? ProjectFeature { get; set; }
+}
+
+public class ProjectFeatureEntry
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("disabled")]
+    public bool? Disabled { get; set; }
+
+    [JsonPropertyName("inherited")]
+    public bool? Inherited { get; set; }
+
+    [JsonPropertyName("properties")]
+    public ProjectFeaturePropertiesWrapper? Properties { get; set; }
+}
+
+public class ProjectFeaturePropertiesWrapper
+{
+    [JsonPropertyName("property")]
+    public List<ProjectFeatureProperty>? Property { get; set; }
+}
+
+public class ProjectFeatureProperty
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("value")]
+    public string? Value { get; set; }
 }
