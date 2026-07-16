@@ -5,14 +5,22 @@ public partial class ProjectTools
     [McpServerTool(Name = "teamcity_get_audit_log"),
         Description(
             "Gets TeamCity audit log entries (configuration changes, permission changes, etc.), " +
-            "optionally scoped to a build type or project. Requires an access token with audit-read " +
-            "permission — degrades gracefully with a clear error if the token lacks it.")]
+            "optionally scoped to a build type or project. By default this includes every audit event, " +
+            "which for an active build type is dominated by routine build_add_to_queue/build_remove_from_queue " +
+            "noise. Set 'configChangesOnly' to true to see only actual configuration edits (triggers, " +
+            "parameters, VCS roots, steps, etc. being changed) — the right choice for 'what was last edited' " +
+            "questions. Requires an access token with audit-read permission — degrades gracefully with a " +
+            "clear error if the token lacks it.")]
     public async Task<string> GetAuditLog(
         [Description("Optional build type ID to scope the audit log to.")]
         string? buildTypeId = null,
 
         [Description("Optional project ID to scope the audit log to (includes sub-projects).")]
         string? affectedProjectId = null,
+
+        [Description("If true, only shows configuration-edit events (action 'build_type_edit_settings') — " +
+                      "excludes build queue/pin/tag/etc. noise. Use this to find the last configuration change.")]
+        bool configChangesOnly = false,
 
         [Description("Maximum number of audit events to return. Defaults to 50.")]
         int count = 50)
@@ -32,6 +40,8 @@ public partial class ProjectTools
                 locatorParts.Add($"buildType:{buildTypeId}");
             if (!string.IsNullOrWhiteSpace(affectedProjectId))
                 locatorParts.Add($"affectedProject:{affectedProjectId}");
+            if (configChangesOnly)
+                locatorParts.Add("action:build_type_edit_settings");
 
             var locator = string.Join(",", locatorParts);
             var fields = "count,auditEvent(action(name),timestamp,user(username),comment)";
@@ -60,6 +70,8 @@ public partial class ProjectTools
                 sb.AppendLine($"**Build Type Filter:** {buildTypeId}");
             if (!string.IsNullOrWhiteSpace(affectedProjectId))
                 sb.AppendLine($"**Project Filter:** {affectedProjectId}");
+            if (configChangesOnly)
+                sb.AppendLine("**Filter:** configuration changes only");
             sb.AppendLine($"**Count:** {audit.Count ?? 0}");
             sb.AppendLine();
 

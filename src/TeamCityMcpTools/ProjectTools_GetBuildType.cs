@@ -4,9 +4,12 @@ public partial class ProjectTools
 {
     [McpServerTool(Name = "teamcity_get_build_type"),
         Description(
-            "Gets full details for a specific TeamCity build configuration, including VCS root info, snapshot and " +
-            "artifact dependencies, and a direct web URL. Returns a markdown document with build type metadata, " +
-            "VCS roots, and dependencies.")]
+            "Gets full details for a specific TeamCity build configuration, including template linkage, general " +
+            "settings, VCS roots, triggers, build steps, agent requirements, and snapshot/artifact dependencies. " +
+            "Every section marks each item as 'own' (defined directly on this build type) or 'inherited' (defined " +
+            "on an attached template), so inheritance is visible without inspecting the template separately. Does " +
+            "NOT include configuration parameters — use 'teamcity_get_build_type_parameters' for those. Returns a " +
+            "markdown document; resolves entirely from the build type ID, no build ID needed.")]
     public async Task<string> GetBuildType(
         [Description("The TeamCity build type ID (e.g., 'MyProject_Build').")]
         string buildTypeId)
@@ -21,7 +24,7 @@ public partial class ProjectTools
 
         try
         {
-            var fields = "id,name,description,projectId,projectName,paused,webUrl,vcsRoots(vcsRootEntry(id,vcsRoot(id,name,vcsName))),triggers(trigger(id,type,properties(property(name,value)))),steps(step(id,name,type,disabled,properties(property(name,value)))),agentRequirements(agentRequirement(id,type,disabled,properties(property(name,value)))),snapshot-dependencies(snapshot-dependency(id,source-buildType(id,name,projectName))),artifact-dependencies(artifact-dependency(id,disabled,source-buildType(id,name,projectName),properties(property(name,value))))";
+            var fields = "id,name,description,projectId,projectName,paused,webUrl,templateFlag,templates(buildType(id,name)),settings(property(name,value,inherited)),vcs-root-entries(vcs-root-entry(id,inherited,checkout-rules,vcs-root(id,name,vcsName))),triggers(trigger(id,type,inherited,properties(property(name,value)))),steps(step(id,name,type,disabled,inherited,properties(property(name,value)))),agentRequirements(agentRequirement(id,type,disabled,properties(property(name,value)))),snapshot-dependencies(snapshot-dependency(id,inherited,source-buildType(id,name,projectName))),artifact-dependencies(artifact-dependency(id,disabled,inherited,source-buildType(id,name,projectName),properties(property(name,value))))";
             var url = $"app/rest/buildTypes/id:{buildTypeId}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
@@ -52,20 +55,62 @@ public partial class ProjectTools
             sb.AppendLine($"| Project ID | {bt.ProjectId} |");
             sb.AppendLine($"| Project Name | {bt.ProjectName} |");
             sb.AppendLine($"| Paused | {(bt.Paused == true ? "Yes" : "No")} |");
+            sb.AppendLine($"| Is Template | {(bt.TemplateFlag == true ? "Yes" : "No")} |");
             sb.AppendLine($"| URL | {bt.WebUrl ?? "—"} |");
             sb.AppendLine();
+
+            var templates = bt.Templates?.BuildType;
+            sb.AppendLine("## Templates");
+            sb.AppendLine();
+            if (templates is { Count: > 0 })
+            {
+                sb.AppendLine("This build configuration inherits settings from the following template(s):");
+                sb.AppendLine();
+                sb.AppendLine("| Template ID | Name |");
+                sb.AppendLine("|-------------|------|");
+                foreach (var template in templates)
+                    sb.AppendLine($"| {template.Id} | {template.Name ?? "—"} |");
+                sb.AppendLine();
+            }
+            else
+            {
+                sb.AppendLine("No template attached — this build configuration does not inherit from a template.");
+                sb.AppendLine();
+            }
+
+            var settings = bt.Settings?.Property;
+            sb.AppendLine("## General Settings");
+            sb.AppendLine();
+            if (settings is { Count: > 0 })
+            {
+                sb.AppendLine("| Name | Value | Source |");
+                sb.AppendLine("|------|-------|--------|");
+                foreach (var setting in settings.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    var source = setting.Inherited == true ? "inherited" : "own";
+                    sb.AppendLine($"| {setting.Name} | {setting.Value} | {source} |");
+                }
+                sb.AppendLine();
+            }
+            else
+            {
+                sb.AppendLine("No general settings reported.");
+                sb.AppendLine();
+            }
 
             var entries = bt.VcsRoots?.VcsRootEntry;
             if (entries is { Count: > 0 })
             {
                 sb.AppendLine("## VCS Roots");
                 sb.AppendLine();
-                sb.AppendLine("| Entry ID | VCS Root ID | Name | Type |");
-                sb.AppendLine("|----------|-------------|------|------|");
+                sb.AppendLine("| Entry ID | VCS Root ID | Name | Type | Source | Checkout Rules |");
+                sb.AppendLine("|----------|-------------|------|------|--------|----------------|");
                 foreach (var entry in entries)
                 {
                     var vcs = entry.VcsRoot;
-                    sb.AppendLine($"| {entry.Id} | {vcs?.Id ?? "—"} | {vcs?.Name ?? "—"} | {vcs?.VcsName ?? "—"} |");
+                    var source = entry.Inherited == true ? "inherited" : "own";
+                    var checkoutRules = string.IsNullOrWhiteSpace(entry.CheckoutRules) ? "—" : entry.CheckoutRules;
+                    sb.AppendLine($"| {entry.Id} | {vcs?.Id ?? "—"} | {vcs?.Name ?? "—"} | {vcs?.VcsName ?? "—"} | {source} | {checkoutRules} |");
                 }
                 sb.AppendLine();
             }
@@ -85,12 +130,13 @@ public partial class ProjectTools
             sb.AppendLine();
             if (snapshotDeps is { Count: > 0 })
             {
-                sb.AppendLine("| Source Build Type | ID | Project |");
-                sb.AppendLine("|--------------------|-----|---------|");
+                sb.AppendLine("| Source Build Type | ID | Project | Source |");
+                sb.AppendLine("|--------------------|-----|---------|--------|");
                 foreach (var dep in snapshotDeps)
                 {
                     var source = dep.SourceBuildType;
-                    sb.AppendLine($"| {source?.Name ?? "—"} | {source?.Id ?? "—"} | {source?.ProjectName ?? "—"} |");
+                    var origin = dep.Inherited == true ? "inherited" : "own";
+                    sb.AppendLine($"| {source?.Name ?? "—"} | {source?.Id ?? "—"} | {source?.ProjectName ?? "—"} | {origin} |");
                 }
                 sb.AppendLine();
             }
@@ -105,8 +151,8 @@ public partial class ProjectTools
             sb.AppendLine();
             if (artifactDeps is { Count: > 0 })
             {
-                sb.AppendLine("| Source Build Type | ID | Project | Path Rules | Revision | Disabled |");
-                sb.AppendLine("|--------------------|-----|---------|------------|----------|----------|");
+                sb.AppendLine("| Source Build Type | ID | Project | Path Rules | Revision | Disabled | Source |");
+                sb.AppendLine("|--------------------|-----|---------|------------|----------|----------|--------|");
                 foreach (var dep in artifactDeps)
                 {
                     var source = dep.SourceBuildType;
@@ -116,7 +162,8 @@ public partial class ProjectTools
                     var revisionValue = props?.FirstOrDefault(p => p.Name == "revisionValue")?.Value;
                     var revision = revisionName is null ? "—" : string.IsNullOrWhiteSpace(revisionValue) ? revisionName : $"{revisionName} ({revisionValue})";
                     var disabled = dep.Disabled == true ? "Yes" : "No";
-                    sb.AppendLine($"| {source?.Name ?? "—"} | {source?.Id ?? "—"} | {source?.ProjectName ?? "—"} | {pathRules} | {revision} | {disabled} |");
+                    var origin = dep.Inherited == true ? "inherited" : "own";
+                    sb.AppendLine($"| {source?.Name ?? "—"} | {source?.Id ?? "—"} | {source?.ProjectName ?? "—"} | {pathRules} | {revision} | {disabled} | {origin} |");
                 }
                 sb.AppendLine();
             }
@@ -133,7 +180,8 @@ public partial class ProjectTools
             {
                 foreach (var trigger in triggers)
                 {
-                    sb.AppendLine($"### {trigger.Type ?? trigger.Id ?? "Unknown"} (`{trigger.Id}`)");
+                    var origin = trigger.Inherited == true ? " *(inherited)*" : "";
+                    sb.AppendLine($"### {trigger.Type ?? trigger.Id ?? "Unknown"} (`{trigger.Id}`){origin}");
                     sb.AppendLine();
                     var props = trigger.Properties?.Property;
                     if (props is { Count: > 0 })
@@ -166,7 +214,8 @@ public partial class ProjectTools
                 {
                     var step = steps[i];
                     var disabled = step.Disabled == true ? " *(disabled)*" : "";
-                    sb.AppendLine($"### Step {i + 1}: {(string.IsNullOrWhiteSpace(step.Name) ? step.Type : step.Name)}{disabled}");
+                    var origin = step.Inherited == true ? " *(inherited)*" : "";
+                    sb.AppendLine($"### Step {i + 1}: {(string.IsNullOrWhiteSpace(step.Name) ? step.Type : step.Name)}{disabled}{origin}");
                     sb.AppendLine();
                     sb.AppendLine($"- **Type**: {step.Type ?? "—"}");
                     sb.AppendLine($"- **ID**: {step.Id ?? "—"}");
@@ -217,7 +266,7 @@ public partial class ProjectTools
                 sb.AppendLine();
             }
 
-            return sb.ToString();
+            return TeamCityFormat.Clamp(sb.ToString());
         }
         catch (Exception ex)
         {

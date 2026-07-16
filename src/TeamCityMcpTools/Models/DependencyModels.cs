@@ -56,6 +56,9 @@ public class SnapshotDependencyEntry
     [JsonPropertyName("id")]
     public string? Id { get; set; }
 
+    [JsonPropertyName("inherited")]
+    public bool? Inherited { get; set; }
+
     [JsonPropertyName("source-buildType")]
     public DependencyBuildTypeRef? SourceBuildType { get; set; }
 }
@@ -85,6 +88,9 @@ public class ArtifactDependencyEntry
 
     [JsonPropertyName("disabled")]
     public bool? Disabled { get; set; }
+
+    [JsonPropertyName("inherited")]
+    public bool? Inherited { get; set; }
 
     [JsonPropertyName("source-buildType")]
     public DependencyBuildTypeRef? SourceBuildType { get; set; }
