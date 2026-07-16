@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `teamcity_get_build` now shows the human-readable VCS root name instead of the internal VCS root ID
 - `teamcity_get_build` now correctly reports a revision's branch (was always showing "unknown branch" due to a wrong field name)
 - `teamcity_get_build_tests` and `teamcity_get_build_log_failures` no longer return unbounded output for builds with many failed tests or large captured test output — both previously had no output budget on a test's failure text and could exceed 200,000 characters in a single call
+- `teamcity_search_builds` no longer 404s when `projectId` points at a project with no build configurations of its own (only subprojects) — the locator now uses `affectedProject` instead of `project` so it recurses into subprojects
 
 ## [0.2.0] - 2026-04-27
 

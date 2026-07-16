@@ -7,7 +7,7 @@ public partial class BuildTools
             "Searches builds across projects using multiple filter criteria. At least one filter must be provided. " +
             "Returns a markdown table with columns: ID, Number, Status, Build Type, Project, Branch, Started, Finished, URL.")]
     public async Task<string> SearchBuilds(
-        [Description("Optional project ID to filter by project.")]
+        [Description("Optional project ID to filter by project, including its subprojects.")]
         string? projectId = null,
 
         [Description("Optional build type ID to filter by build configuration.")]
@@ -64,7 +64,7 @@ public partial class BuildTools
             var locatorParts = new List<string> { $"count:{effectiveCount}" };
 
             if (!string.IsNullOrWhiteSpace(projectId))
-                locatorParts.Add($"project:id:{projectId}");
+                locatorParts.Add($"affectedProject:(id:{projectId})");
             if (!string.IsNullOrWhiteSpace(buildTypeId))
                 locatorParts.Add($"buildType:id:{buildTypeId}");
             if (!string.IsNullOrWhiteSpace(branch))
