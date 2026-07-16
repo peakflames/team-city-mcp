@@ -78,4 +78,23 @@ internal static class TeamCityFormat
         return $"{markdown[..cut]}\n\n**Note:** Output truncated at ~{maxChars:N0} characters — " +
                "narrow the query (filters, count, contextLines, maxMatches, etc.) for full coverage.";
     }
+
+    /// <summary>
+    /// Compiles an optional case-insensitive regex filter pattern. Returns Ok(null) when
+    /// <paramref name="pattern"/> is null/blank (no filter), Ok(regex) when valid, or a Fail result
+    /// carrying the exception message when the pattern is invalid or pathological.
+    /// </summary>
+    internal static Result<Regex?> CompileFilter(string? pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern))
+            return Result.Ok<Regex?>(null);
+        try
+        {
+            return Result.Ok<Regex?>(new Regex(pattern, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1)));
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail(ex.Message);
+        }
+    }
 }
