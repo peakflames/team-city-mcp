@@ -21,15 +21,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `teamcity_get_vcs_root` tool to retrieve full connection details (repo URL, branch spec, auth method) for a single VCS root, with secure properties masked
 - `teamcity_list_vcs_roots` tool to list VCS roots (id and name), optionally scoped to a project or filtered by name
 - `teamcity_list_mutes` tool to retrieve mute details (reason, who muted it and when, scope, resolution policy) from `/app/rest/mutes`, scoped by project, build type, or a build ID resolved to its build type
+- `teamcity_search_build_log` tool to search a build's full console log server-side for a regex or literal pattern, returning merged context windows around matches
+- `teamcity_get_build_log_failures` tool to combine a build's failed-test details with log context windows keyed to each failed test's name, for one-call failure diagnosis
+- `teamcity_get_project_parameters` tool to retrieve a project's configuration parameters, marked own or inherited from a parent project, with substring name filtering
+- `teamcity_get_project_features` tool to retrieve a project's features (report tabs, versioned settings, issue trackers, etc.), grouped by type and marked own or inherited
+- `teamcity_list_templates` tool to list build templates, optionally scoped to a project, with name/ID regex filtering and a result count cap
+- `teamcity_get_build_type_parameters` tool to retrieve a build configuration's parameters, marked own or inherited from a template, with substring name filtering
 
 ### Changed
 - `teamcity_get_build` now also returns the `personal` flag and, per VCS revision, the associated VCS root instance/root ID
-- `teamcity_get_build_dependency_tree`, `teamcity_get_build_type_dependency_graph`, and `teamcity_get_build_type` now also surface artifact dependencies (previously only snapshot dependencies were shown), labeled `[snapshot]`/`[artifact]`/`[snapshot+artifact]`; artifact dependents remain unresolvable via the TeamCity API and are noted as such. Note: TeamCity's run-level `artifact-dependencies` field on a build is often unpopulated even for a resolved, successful artifact dependency — `teamcity_get_build_dependency_tree` now flags this and points to the design-time tools as a cross-check
-
-### Changed
-- `teamcity_get_build_tests` and `teamcity_get_build_log_failures` now group failed tests that share byte-identical failure text into a single "Failure Groups" section instead of repeating it per test, and add a `detailsMode` (`compact`/`full`/`none`) plus `detailsMaxChars` parameter to control how much failure text is shown per group
+- `teamcity_get_build_dependency_tree`, `teamcity_get_build_type_dependency_graph`, and `teamcity_get_build_type` now also surface artifact dependencies (previously only snapshot), labeled `[snapshot]`/`[artifact]`/`[snapshot+artifact]`. Artifact dependents remain unresolvable via the TeamCity API
+- TeamCity's run-level `artifact-dependencies` field on a build is often unpopulated even for a resolved, successful dependency — `teamcity_get_build_dependency_tree` now flags this and points to the design-time tools as a cross-check
+- `teamcity_get_build_tests` and `teamcity_get_build_log_failures` now group failed tests sharing byte-identical failure text into a single "Failure Groups" section instead of repeating it per test
+- Both tools add a `detailsMode` (`compact`/`full`/`none`) and `detailsMaxChars` parameter to control how much failure text is shown per group
 - All markdown-returning tools now clamp their output to a safe character ceiling as a safety net, with a note when truncation occurs, so no single tool call can exceed the MCP client's token limit
 - Lowered `teamcity_search_build_log`'s and `teamcity_get_build_artifact_content`'s output byte caps to stay under the new shared ceiling
+- `teamcity_get_project` now includes a Build Templates section
+- `teamcity_get_build_type` now marks every section — templates, settings, VCS roots, triggers, steps, dependencies — as own or inherited from a template
+- `teamcity_get_audit_log` adds a `configChangesOnly` filter to show only real configuration edits, cutting through build-queue noise
+- `teamcity_list_build_types` and `teamcity_list_projects` now support `nameFilter` (regex on Name), `idFilter` (regex on ID), and a `count` cap, plus output clamping
 
 ### Fixed
 - `teamcity_get_build` now shows the human-readable VCS root name instead of the internal VCS root ID
