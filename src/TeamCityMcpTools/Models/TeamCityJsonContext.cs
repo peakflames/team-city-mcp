@@ -84,6 +84,20 @@ namespace TeamCityMcpTools.Models;
 [JsonSerializable(typeof(VcsRootProjectRef))]
 [JsonSerializable(typeof(VcsRootPropertiesWrapper))]
 [JsonSerializable(typeof(VcsRootProperty))]
+[JsonSerializable(typeof(MutesResponse))]
+[JsonSerializable(typeof(MuteEntry))]
+[JsonSerializable(typeof(MuteAssignment))]
+[JsonSerializable(typeof(MuteUserRef))]
+[JsonSerializable(typeof(MuteScope))]
+[JsonSerializable(typeof(MuteBuildTypesWrapper))]
+[JsonSerializable(typeof(MuteTarget))]
+[JsonSerializable(typeof(MuteTestsWrapper))]
+[JsonSerializable(typeof(MuteTestRef))]
+[JsonSerializable(typeof(MuteProblemsWrapper))]
+[JsonSerializable(typeof(MuteProblemRef))]
+[JsonSerializable(typeof(MuteResolution))]
+[JsonSerializable(typeof(MuteBuildLookup))]
+[JsonSerializable(typeof(MuteBuildTypeRef))]
 public partial class TeamCityJsonContext : JsonSerializerContext
 {
 }

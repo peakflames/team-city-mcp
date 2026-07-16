@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `teamcity_get_audit_log` tool to retrieve TeamCity audit log entries, optionally scoped to a build type or project
 - `teamcity_get_vcs_root` tool to retrieve full connection details (repo URL, branch spec, auth method) for a single VCS root, with secure properties masked
 - `teamcity_list_vcs_roots` tool to list VCS roots (id and name), optionally scoped to a project or filtered by name
+- `teamcity_list_mutes` tool to retrieve mute details (reason, who muted it and when, scope, resolution policy) from `/app/rest/mutes`, scoped by project, build type, or a build ID resolved to its build type
 
 ### Changed
 - `teamcity_get_build` now also returns the `personal` flag and, per VCS revision, the associated VCS root instance/root ID
