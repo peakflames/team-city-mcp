@@ -59,13 +59,14 @@ public partial class BuildTools
                 sb.AppendLine($"**Build Type:** {buildTypeId}");
             sb.AppendLine($"**Count:** {occurrences.Count}");
             sb.AppendLine();
-            sb.AppendLine("| Build # | Status | Duration (ms) | Branch | Build Type |");
-            sb.AppendLine("|---------|--------|----------------|--------|------------|");
+            sb.AppendLine("| Build # | Status | Duration | Branch | Build Type |");
+            sb.AppendLine("|---------|--------|----------|--------|------------|");
 
             foreach (var test in occurrences)
             {
                 var build = test.Build;
-                sb.AppendLine($"| {build?.Number} | {test.Status} | {test.Duration?.ToString() ?? "—"} | {build?.BranchName ?? "default"} | {build?.BuildType?.Name} |");
+                var duration = test.Duration.HasValue ? TeamCityFormat.FormatDurationMs(test.Duration.Value) : "—";
+                sb.AppendLine($"| {build?.Number} | {test.Status} | {duration} | {build?.BranchName ?? "default"} | {build?.BuildType?.Name} |");
             }
 
             return sb.ToString();

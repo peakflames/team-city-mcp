@@ -61,6 +61,51 @@ public class BuildTypeDetails : BuildTypeSummary
 
     [JsonPropertyName("artifact-dependencies")]
     public ArtifactDependenciesWrapper? ArtifactDependencies { get; set; }
+
+    [JsonPropertyName("features")]
+    public BuildTypeFeaturesWrapper? Features { get; set; }
+}
+
+public class BuildTypeFeaturesWrapper
+{
+    [JsonPropertyName("count")]
+    public int? Count { get; set; }
+
+    [JsonPropertyName("feature")]
+    public List<BuildTypeFeatureEntry>? Feature { get; set; }
+}
+
+public class BuildTypeFeatureEntry
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("disabled")]
+    public bool? Disabled { get; set; }
+
+    [JsonPropertyName("inherited")]
+    public bool? Inherited { get; set; }
+
+    [JsonPropertyName("properties")]
+    public BuildTypeFeaturePropertiesWrapper? Properties { get; set; }
+}
+
+public class BuildTypeFeaturePropertiesWrapper
+{
+    [JsonPropertyName("property")]
+    public List<BuildTypeFeatureProperty>? Property { get; set; }
+}
+
+public class BuildTypeFeatureProperty
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("value")]
+    public string? Value { get; set; }
 }
 
 public class TemplatesWrapper

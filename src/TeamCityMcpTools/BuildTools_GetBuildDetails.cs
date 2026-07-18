@@ -5,7 +5,9 @@ public partial class BuildTools
     [McpServerTool(Name = "teamcity_get_build"),
         Description(
             "Gets comprehensive details for a specific TeamCity build, including status, agent, " +
-            "VCS revisions, and build problems. Returns a markdown document mixed with XML tags.")]
+            "VCS revisions, build problems, and whether the build is composite (a matrix/build-chain build whose " +
+            "test results aggregate from sub-builds — see teamcity_get_build_tests). Returns a markdown document " +
+            "mixed with XML tags.")]
     public async Task<string> GetBuild(
         [Description("The TeamCity build ID (numeric).")]
         string buildId)
@@ -20,7 +22,7 @@ public partial class BuildTools
 
         try
         {
-            var fields = "id,number,status,state,branchName,startDate,finishDate,duration,webUrl,personal," +
+            var fields = "id,number,status,state,branchName,startDate,finishDate,duration,webUrl,personal,composite," +
                          "buildType(name,projectName)," +
                          "agent(name)," +
                          "triggered(user(name),date,type)," +
@@ -60,14 +62,13 @@ public partial class BuildTools
             sb.AppendLine($"| Branch | {build.BranchName ?? "default"} |");
             if (build.Personal == true)
                 sb.AppendLine("| Personal | yes |");
+            if (build.Composite == true)
+                sb.AppendLine("| Composite | yes — test results aggregate across sub-builds |");
             sb.AppendLine($"| Started | {TeamCityFormat.FormatTcDate(build.StartDate)} |");
             sb.AppendLine($"| Finished | {TeamCityFormat.FormatTcDate(build.FinishDate)} |");
 
             if (build.Duration.HasValue)
-            {
-                var dur = TimeSpan.FromSeconds(build.Duration.Value);
-                sb.AppendLine($"| Duration | {(int)dur.TotalMinutes:D2}:{dur.Seconds:D2} |");
-            }
+                sb.AppendLine($"| Duration | {TeamCityFormat.FormatDurationSeconds(build.Duration.Value)} |");
 
             sb.AppendLine($"| Agent | {build.Agent?.Name ?? "unknown"} |");
 

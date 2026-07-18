@@ -53,6 +53,9 @@ public class BuildDetails : BuildSummary
     [JsonPropertyName("personal")]
     public bool? Personal { get; set; }
 
+    [JsonPropertyName("composite")]
+    public bool? Composite { get; set; }
+
     [JsonPropertyName("triggered")]
     public TriggeredInfo? Triggered { get; set; }
 

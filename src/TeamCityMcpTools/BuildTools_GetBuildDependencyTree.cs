@@ -5,14 +5,16 @@ public partial class BuildTools
     [McpServerTool(Name = "teamcity_get_build_dependency_tree"),
         Description(
             "Walks a build's actual dependency chain — both snapshot and artifact dependencies — and " +
-            "renders an indented markdown tree with per-node status, labeled [snapshot], [artifact], or " +
-            "[snapshot+artifact]. Use direction 'down' (default) to see what this build depends on, " +
-            "or 'up' to see what depends on this build (snapshot dependents only — artifact dependents " +
-            "cannot be resolved via the TeamCity API). Note: TeamCity's run-level artifact-dependencies " +
-            "field is often unpopulated even for a resolved, successful artifact dependency — if a build " +
-            "shows no artifact deps here, cross-check teamcity_get_build_type or " +
-            "teamcity_get_build_type_dependency_graph, which read the design-time configuration instead. " +
-            "Helps diagnose whether dependencies were reused or rebuilt for a given run.")]
+            "renders an indented markdown tree (default) or a Mermaid graph (format:'mermaid'), with per-node " +
+            "status, labeled [snapshot], [artifact], or [snapshot+artifact]. Use direction 'down' (default) to see " +
+            "what this build depends on, or 'up' to see what depends on this build (snapshot dependents only — " +
+            "artifact dependents cannot be resolved via the TeamCity API). Note: TeamCity's run-level " +
+            "artifact-dependencies field is often unpopulated even for a resolved, successful artifact dependency " +
+            "— if a build shows no artifact deps here, cross-check teamcity_get_build_type or " +
+            "teamcity_get_build_type_dependency_graph, which read the design-time configuration instead. Helps " +
+            "diagnose whether dependencies were reused or rebuilt for a given run. Orientation — matching the " +
+            "TeamCity build-chain UI — dependencies (upstream) render left, dependents (downstream) render right, " +
+            "with arrows always flowing dependency -> dependent.")]
     public async Task<string> GetBuildDependencyTree(
         [Description("The TeamCity build ID (numeric).")]
         string buildId,
@@ -21,8 +23,16 @@ public partial class BuildTools
         int depth = 10,
 
         [Description("Direction to walk: 'down' for dependencies (default), 'up' for dependents.")]
-        string direction = "down")
+        string direction = "down",
+
+        [Description("Output format: 'markdown' (default, indented tree) or 'mermaid' (fenced ```mermaid graph LR``` " +
+                      "block; dependencies left, dependents right, arrows dependency -> dependent).")]
+        string format = "markdown")
     {
+        if (!string.Equals(format, "markdown", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(format, "mermaid", StringComparison.OrdinalIgnoreCase))
+            return $"ERROR: Unknown format '{format}'. Use 'markdown' or 'mermaid'.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -31,6 +41,7 @@ public partial class BuildTools
 
         var client = clientResult.Value;
         var up = string.Equals(direction, "up", StringComparison.OrdinalIgnoreCase);
+        var mermaid = string.Equals(format, "mermaid", StringComparison.OrdinalIgnoreCase);
 
         try
         {
@@ -51,30 +62,15 @@ public partial class BuildTools
             if (root is null)
                 return $"ERROR: Unable to parse build details for ID '{buildId}'.";
 
-            var sb = new StringBuilder();
-            sb.AppendLine("# Build Dependency Tree");
-            sb.AppendLine();
-            sb.AppendLine($"**Direction:** {(up ? "dependents (up)" : "dependencies (down)")}");
-            sb.AppendLine($"**Max Depth:** {depth}");
-            sb.AppendLine();
-            if (up)
-            {
-                sb.AppendLine("*Note: only snapshot dependents are shown — TeamCity has no reverse locator for artifact dependencies.*");
-            }
-            else
-            {
-                sb.AppendLine("*Note: TeamCity's run-level artifact-dependencies field is often unpopulated even for a resolved, " +
-                    "successful artifact dependency. If an expected artifact dependency is missing below, check " +
-                    "teamcity_get_build_type or teamcity_get_build_type_dependency_graph for the configured dependency.*");
-            }
-            sb.AppendLine();
-            sb.AppendLine(FormatNodeLine(root.BuildType?.Name ?? root.BuildTypeId, root.Number, root.Id, root.Status, root.State, 0, null, null));
+            var rootNode = new DependencyGraphNode(root.Id, root.BuildType?.Name ?? root.BuildTypeId, root.Number, root.Status, root.State);
 
+            var items = new List<DependencyGraphItem>();
             var visited = new HashSet<int> { root.Id };
+            await CollectDependencyChildren(client, items, root.Id, 1, depth, up, visited);
 
-            await RenderDependencyChildren(client, sb, root.Id, 1, depth, up, visited);
-
-            return sb.ToString();
+            return mermaid
+                ? RenderDependencyMermaid(rootNode, items, up, depth)
+                : RenderDependencyMarkdown(rootNode, items, up, depth);
         }
         catch (Exception ex)
         {
@@ -82,9 +78,105 @@ public partial class BuildTools
         }
     }
 
-    private static async Task RenderDependencyChildren(
+    private static string RenderDependencyMarkdown(DependencyGraphNode root, List<DependencyGraphItem> items, bool up, int depth)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("# Build Dependency Tree");
+        sb.AppendLine();
+        sb.AppendLine($"**Direction:** {(up ? "dependents (up)" : "dependencies (down)")}");
+        sb.AppendLine($"**Max Depth:** {depth}");
+        sb.AppendLine();
+        if (up)
+        {
+            sb.AppendLine("*Note: only snapshot dependents are shown — TeamCity has no reverse locator for artifact dependencies.*");
+        }
+        else
+        {
+            sb.AppendLine("*Note: TeamCity's run-level artifact-dependencies field is often unpopulated even for a resolved, " +
+                "successful artifact dependency. If an expected artifact dependency is missing below, check " +
+                "teamcity_get_build_type or teamcity_get_build_type_dependency_graph for the configured dependency.*");
+        }
+        sb.AppendLine();
+        sb.AppendLine(FormatNodeLine(root.Name, root.Number, root.Id, root.Status, root.State, 0, null, null));
+
+        foreach (var item in items)
+        {
+            switch (item)
+            {
+                case DependencyGraphNodeItem node:
+                    sb.AppendLine(FormatNodeLine(node.Node.Name, node.Node.Number, node.Node.Id, node.Node.Status, node.Node.State,
+                        node.Depth, node.Cyclic ? "cycle — already visited" : null, node.Kind));
+                    break;
+                case DependencyGraphWarningItem warning:
+                    sb.AppendLine($"{new string(' ', warning.Depth * 2)}- ⚠️ {warning.Message}");
+                    break;
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private static string RenderDependencyMermaid(DependencyGraphNode root, List<DependencyGraphItem> items, bool up, int depth)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("# Build Dependency Tree");
+        sb.AppendLine();
+        sb.AppendLine($"**Direction:** {(up ? "dependents (up)" : "dependencies (down)")}");
+        sb.AppendLine($"**Max Depth:** {depth}");
+        sb.AppendLine();
+        sb.AppendLine("*Orientation: dependencies (upstream) on the left, dependents (downstream) on the right — " +
+                       "arrows flow dependency -> dependent.*");
+        sb.AppendLine();
+        sb.AppendLine("```mermaid");
+        sb.AppendLine("graph LR");
+
+        var declared = new HashSet<int>();
+
+        void DeclareNode(DependencyGraphNode node, bool isRoot)
+        {
+            if (!declared.Add(node.Id))
+                return;
+            var id = TeamCityFormat.SanitizeMermaidId("b", node.Id.ToString());
+            var label = TeamCityFormat.EscapeMermaidLabel($"{StatusIcon(node.Status, node.State)} {node.Name} #{node.Number} (id:{node.Id})");
+            sb.AppendLine(isRoot ? $"    {id}[\"{label}\"]:::root" : $"    {id}[\"{label}\"]");
+        }
+
+        DeclareNode(root, true);
+        foreach (var item in items)
+        {
+            if (item is DependencyGraphNodeItem node)
+                DeclareNode(node.Node, false);
+        }
+
+        sb.AppendLine();
+
+        var emittedEdges = new HashSet<(int Source, int Target)>();
+        foreach (var item in items)
+        {
+            if (item is not DependencyGraphNodeItem node)
+                continue;
+
+            // Arrows always flow dependency -> dependent, regardless of which direction was walked.
+            var (sourceId, targetId) = up ? (node.FromId, node.Node.Id) : (node.Node.Id, node.FromId);
+            if (!emittedEdges.Add((sourceId, targetId)))
+                continue;
+
+            var sourceMermaidId = TeamCityFormat.SanitizeMermaidId("b", sourceId.ToString());
+            var targetMermaidId = TeamCityFormat.SanitizeMermaidId("b", targetId.ToString());
+            var label = node.Kind is null ? string.Empty : $"|{node.Kind}|";
+            sb.AppendLine($"    {sourceMermaidId} -->{label} {targetMermaidId}");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("    classDef root fill:#f9c74f,stroke:#333,stroke-width:2px;");
+        sb.AppendLine("```");
+
+        return sb.ToString();
+    }
+
+    private static async Task CollectDependencyChildren(
         TeamCityClient client,
-        StringBuilder sb,
+        List<DependencyGraphItem> items,
         int nodeId,
         int currentDepth,
         int maxDepth,
@@ -103,8 +195,8 @@ public partial class BuildTools
             var dependentsResponse = await client.HttpClient.GetAsync(dependentsUrl);
             if (!dependentsResponse.IsSuccessStatusCode)
             {
-                var indent = new string(' ', currentDepth * 2);
-                sb.AppendLine($"{indent}- ⚠️ Failed to load children ({(int)dependentsResponse.StatusCode}: {dependentsResponse.ReasonPhrase})");
+                items.Add(new DependencyGraphWarningItem(currentDepth,
+                    $"Failed to load children ({(int)dependentsResponse.StatusCode}: {dependentsResponse.ReasonPhrase})"));
                 return;
             }
 
@@ -117,13 +209,14 @@ public partial class BuildTools
             foreach (var node in dependentsList.Build)
             {
                 var cyclic = visited.Contains(node.Id);
-                sb.AppendLine(FormatNodeLine(node.BuildType?.Name ?? node.BuildTypeId, node.Number, node.Id, node.Status, node.State, currentDepth, cyclic ? "cycle — already visited" : null, "snapshot"));
+                var graphNode = new DependencyGraphNode(node.Id, node.BuildType?.Name ?? node.BuildTypeId, node.Number, node.Status, node.State);
+                items.Add(new DependencyGraphNodeItem(nodeId, graphNode, currentDepth, "snapshot", cyclic));
 
                 if (cyclic)
                     continue;
 
                 visited.Add(node.Id);
-                await RenderDependencyChildren(client, sb, node.Id, currentDepth + 1, maxDepth, up, visited);
+                await CollectDependencyChildren(client, items, node.Id, currentDepth + 1, maxDepth, up, visited);
             }
 
             return;
@@ -135,8 +228,8 @@ public partial class BuildTools
         var response = await client.HttpClient.GetAsync(url);
         if (!response.IsSuccessStatusCode)
         {
-            var indent = new string(' ', currentDepth * 2);
-            sb.AppendLine($"{indent}- ⚠️ Failed to load children ({(int)response.StatusCode}: {response.ReasonPhrase})");
+            items.Add(new DependencyGraphWarningItem(currentDepth,
+                $"Failed to load children ({(int)response.StatusCode}: {response.ReasonPhrase})"));
             return;
         }
 
@@ -166,13 +259,14 @@ public partial class BuildTools
         {
             var cyclic = visited.Contains(node.Id);
             var kind = isSnapshot && isArtifact ? "snapshot+artifact" : isSnapshot ? "snapshot" : "artifact";
-            sb.AppendLine(FormatNodeLine(node.BuildType?.Name ?? node.BuildTypeId, node.Number, node.Id, node.Status, node.State, currentDepth, cyclic ? "cycle — already visited" : null, kind));
+            var graphNode = new DependencyGraphNode(node.Id, node.BuildType?.Name ?? node.BuildTypeId, node.Number, node.Status, node.State);
+            items.Add(new DependencyGraphNodeItem(nodeId, graphNode, currentDepth, kind, cyclic));
 
             if (cyclic)
                 continue;
 
             visited.Add(node.Id);
-            await RenderDependencyChildren(client, sb, node.Id, currentDepth + 1, maxDepth, up, visited);
+            await CollectDependencyChildren(client, items, node.Id, currentDepth + 1, maxDepth, up, visited);
         }
     }
 
@@ -198,4 +292,12 @@ public partial class BuildTools
             _ => "❔"
         };
     }
+
+    private sealed record DependencyGraphNode(int Id, string? Name, string? Number, string? Status, string? State);
+
+    private abstract record DependencyGraphItem;
+
+    private sealed record DependencyGraphNodeItem(int FromId, DependencyGraphNode Node, int Depth, string? Kind, bool Cyclic) : DependencyGraphItem;
+
+    private sealed record DependencyGraphWarningItem(int Depth, string Message) : DependencyGraphItem;
 }

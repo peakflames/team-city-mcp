@@ -97,4 +97,51 @@ internal static class TeamCityFormat
             return Result.Fail(ex.Message);
         }
     }
+
+    /// <summary>
+    /// Formats a millisecond duration as both a humanized h/m/s string and the raw millisecond count, e.g.
+    /// "5m 0.5s (300,491 ms)" or "48.4s (48,383 ms)". Sub-second durations render as plain "N ms" since a
+    /// humanized form would add nothing. Both forms are always present so clients that want ms precision
+    /// never lose it to the humanized display.
+    /// </summary>
+    internal static string FormatDurationMs(long ms)
+    {
+        if (ms < 1000)
+            return $"{ms:N0} ms";
+
+        var totalSeconds = ms / 1000.0;
+        var hours = (int)(totalSeconds / 3600);
+        var minutes = (int)(totalSeconds % 3600 / 60);
+        var seconds = totalSeconds % 60;
+
+        var parts = new List<string>();
+        if (hours > 0)
+            parts.Add($"{hours}h");
+        if (hours > 0 || minutes > 0)
+            parts.Add($"{minutes}m");
+        parts.Add(hours > 0 ? $"{(int)seconds}s" : $"{seconds:0.#}s");
+
+        return $"{string.Join(" ", parts)} ({ms:N0} ms)";
+    }
+
+    /// <summary>Same as <see cref="FormatDurationMs"/> but for a duration already expressed in whole seconds.</summary>
+    internal static string FormatDurationSeconds(long seconds) => FormatDurationMs(seconds * 1000);
+
+    /// <summary>
+    /// Sanitizes an arbitrary TeamCity ID into a syntactically valid Mermaid node identifier — Mermaid node IDs
+    /// cannot safely contain most punctuation, so anything outside [A-Za-z0-9_] is replaced with '_'.
+    /// </summary>
+    internal static string SanitizeMermaidId(string prefix, string rawId)
+    {
+        var cleaned = Regex.Replace(rawId, "[^A-Za-z0-9_]", "_");
+        return $"{prefix}_{cleaned}";
+    }
+
+    /// <summary>
+    /// Escapes text for use inside a quoted Mermaid node/edge label. Mermaid labels are quoted with double
+    /// quotes, so any embedded quote is replaced with its HTML entity and newlines are flattened — otherwise
+    /// labels like build type names containing "[Test Group 1]" or embedded quotes break the diagram syntax.
+    /// </summary>
+    internal static string EscapeMermaidLabel(string label) =>
+        label.Replace("\"", "#quot;").Replace("\r\n", " ").Replace("\n", " ");
 }

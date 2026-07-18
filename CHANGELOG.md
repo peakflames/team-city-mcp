@@ -8,10 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `teamcity_get_build_dependency_tree` tool to walk a build's actual snapshot-dependency chain
-- `teamcity_get_build_type_dependency_graph` tool to render a build type's design-time dependency/dependent graph
-- `teamcity_get_build_tests` tool to retrieve test occurrences and failure detail for a build
-- `teamcity_get_test_history` tool to follow a single test's status across builds
+- `teamcity_get_build_dependency_tree` tool to walk a build's actual snapshot-dependency chain, with a `format` option (`markdown`/`mermaid`) rendering a `graph LR` diagram — dependencies (upstream) on the left, dependents (downstream) on the right, arrows flowing dependency -> dependent, matching the TeamCity build-chain UI
+- `teamcity_get_build_type_dependency_graph` tool to render a build type's design-time dependency/dependent graph, with the same `mermaid` format option combining dependencies/dependents into one graph with the build type in the middle
+- `teamcity_get_build_tests` tool to retrieve test occurrences and failure detail for a build. Composite/matrix builds are handled natively — TeamCity aggregates test occurrences across the whole chain, so results already cover every sub-build, with a Sub-build column and a Chain Parts section giving accurate per-sub-build totals. Summary counts (including a new `newFailed` count) are pulled from the build's own totals rather than the page-scoped test-occurrences response, so they're accurate regardless of `count`. The default `failed` filter excludes muted tests (`status:FAILURE,muted:false`) to match what the TeamCity UI reports. Test durations are shown in both humanized (h/m/s) and raw-millisecond form
+- `teamcity_get_test_history` tool to follow a single test's status across builds, with durations shown in both humanized (h/m/s) and raw-millisecond form
+- `teamcity_get_build_type_features` tool to retrieve a build configuration's build features (e.g. the Matrix Build feature, build failure conditions, swabra, notifications), grouped by type and marked own or inherited
 - `teamcity_get_build_problems` tool to retrieve dedicated build problem occurrences (exit codes, snapshot dependency failures, etc.)
 - `teamcity_list_build_artifacts` tool to list a build's artifact files and directories, including hidden `.teamcity/...` entries
 - `teamcity_get_build_artifact_content` tool to read a text artifact's content, with binary refusal and size/line truncation guardrails
@@ -30,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - `teamcity_get_build` now also returns the `personal` flag and, per VCS revision, the associated VCS root instance/root ID
+- `teamcity_get_build` now surfaces the `composite` flag (whether the build is a matrix/build-chain build) and renders `duration` in both humanized (h/m/s) and raw-second form instead of a bare `MM:SS` string
+- `teamcity_get_build_type` now includes a compact Build Features section (type/id/origin/disabled), pointing to `teamcity_get_build_type_features` for full property detail
 - `teamcity_get_build_dependency_tree`, `teamcity_get_build_type_dependency_graph`, and `teamcity_get_build_type` now also surface artifact dependencies (previously only snapshot), labeled `[snapshot]`/`[artifact]`/`[snapshot+artifact]`. Artifact dependents remain unresolvable via the TeamCity API
 - TeamCity's run-level `artifact-dependencies` field on a build is often unpopulated even for a resolved, successful dependency — `teamcity_get_build_dependency_tree` now flags this and points to the design-time tools as a cross-check
 - `teamcity_get_build_tests` and `teamcity_get_build_log_failures` now group failed tests sharing byte-identical failure text into a single "Failure Groups" section instead of repeating it per test
