@@ -4,8 +4,10 @@ public partial class ProjectTools
 {
     [McpServerTool(Name = "teamcity_get_project"),
         Description(
-            "Gets details for a specific TeamCity project by ID, including its child projects and build configurations. " +
-            "Returns a markdown document with project metadata, a child projects table, and a build types table.")]
+            "Gets details for a specific TeamCity project by ID, including its child projects, build configurations, " +
+            "and build templates. Returns a markdown document with project metadata, a child projects table, a " +
+            "build types table, and a build templates table. Does NOT include project parameters or project " +
+            "features — use 'teamcity_get_project_parameters' and 'teamcity_get_project_features' for those.")]
     public async Task<string> GetProject(
         [Description("The TeamCity project ID (e.g., 'MyProject').")]
         string projectId)
@@ -20,7 +22,7 @@ public partial class ProjectTools
 
         try
         {
-            var fields = "id,name,description,parentProject(id,name),projects(project(id,name)),buildTypes(buildType(id,name))";
+            var fields = "id,name,description,parentProject(id,name),projects(project(id,name)),buildTypes(buildType(id,name)),templates(buildType(id,name))";
             var url = $"app/rest/projects/id:{projectId}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
@@ -72,6 +74,23 @@ public partial class ProjectTools
                 sb.AppendLine("|----|------|");
                 foreach (var bt in buildTypes)
                     sb.AppendLine($"| {bt.Id} | {bt.Name} |");
+                sb.AppendLine();
+            }
+
+            var templates = project.Templates?.BuildType;
+            sb.AppendLine("## Build Templates");
+            sb.AppendLine();
+            if (templates is { Count: > 0 })
+            {
+                sb.AppendLine("| ID | Name |");
+                sb.AppendLine("|----|------|");
+                foreach (var template in templates)
+                    sb.AppendLine($"| {template.Id} | {template.Name} |");
+                sb.AppendLine();
+            }
+            else
+            {
+                sb.AppendLine("None.");
                 sb.AppendLine();
             }
 
