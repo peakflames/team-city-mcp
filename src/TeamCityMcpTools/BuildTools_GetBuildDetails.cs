@@ -5,7 +5,9 @@ public partial class BuildTools
     [McpServerTool(Name = "teamcity_get_build"),
         Description(
             "Gets comprehensive details for a specific TeamCity build, including status, agent, " +
-            "VCS revisions, and build problems. Returns a markdown document mixed with XML tags.")]
+            "VCS revisions, build problems, and whether the build is composite (a matrix/build-chain build whose " +
+            "test results aggregate from sub-builds — see teamcity_get_build_tests). Returns a markdown document " +
+            "mixed with XML tags.")]
     public async Task<string> GetBuild(
         [Description("The TeamCity build ID (numeric).")]
         string buildId)
@@ -20,11 +22,11 @@ public partial class BuildTools
 
         try
         {
-            var fields = "id,number,status,state,branchName,startDate,finishDate,duration,webUrl," +
+            var fields = "id,number,status,state,branchName,startDate,finishDate,duration,webUrl,personal,composite," +
                          "buildType(name,projectName)," +
                          "agent(name)," +
                          "triggered(user(name),date,type)," +
-                         "revisions(revision(version,vcsBranch))," +
+                         "revisions(revision(version,vcsBranchName,vcs-root-instance(id,vcs-root-id,name,vcsName)))," +
                          "problemOccurrences(count,problemOccurrence(type,details))";
             var url = $"app/rest/builds/id:{buildId}?fields={Uri.EscapeDataString(fields)}";
 
@@ -58,21 +60,22 @@ public partial class BuildTools
             sb.AppendLine($"| Status | {build.Status} |");
             sb.AppendLine($"| State | {build.State} |");
             sb.AppendLine($"| Branch | {build.BranchName ?? "default"} |");
-            sb.AppendLine($"| Started | {FormatTcDate(build.StartDate)} |");
-            sb.AppendLine($"| Finished | {FormatTcDate(build.FinishDate)} |");
+            if (build.Personal == true)
+                sb.AppendLine("| Personal | yes |");
+            if (build.Composite == true)
+                sb.AppendLine("| Composite | yes — test results aggregate across sub-builds |");
+            sb.AppendLine($"| Started | {TeamCityFormat.FormatTcDate(build.StartDate)} |");
+            sb.AppendLine($"| Finished | {TeamCityFormat.FormatTcDate(build.FinishDate)} |");
 
             if (build.Duration.HasValue)
-            {
-                var dur = TimeSpan.FromSeconds(build.Duration.Value);
-                sb.AppendLine($"| Duration | {(int)dur.TotalMinutes:D2}:{dur.Seconds:D2} |");
-            }
+                sb.AppendLine($"| Duration | {TeamCityFormat.FormatDurationSeconds(build.Duration.Value)} |");
 
             sb.AppendLine($"| Agent | {build.Agent?.Name ?? "unknown"} |");
 
             if (build.Triggered is not null)
             {
                 var triggeredBy = build.Triggered.User?.Name ?? build.Triggered.Type ?? "unknown";
-                sb.AppendLine($"| Triggered By | {triggeredBy} ({FormatTcDate(build.Triggered.Date)}) |");
+                sb.AppendLine($"| Triggered By | {triggeredBy} ({TeamCityFormat.FormatTcDate(build.Triggered.Date)}) |");
             }
 
             sb.AppendLine($"| URL | {build.WebUrl} |");
@@ -85,7 +88,14 @@ public partial class BuildTools
                 sb.AppendLine("## VCS Revisions");
                 sb.AppendLine();
                 foreach (var rev in revisions)
-                    sb.AppendLine($"- **{rev.VcsBranch ?? "unknown branch"}**: `{rev.Version}`");
+                {
+                    var vcsRootName = rev.VcsRootInstance?.Name ?? rev.VcsRootInstance?.VcsRootId;
+                    var vcsType = rev.VcsRootInstance?.VcsName;
+                    var vcsRootLabel = string.IsNullOrWhiteSpace(vcsRootName)
+                        ? "unknown VCS root"
+                        : string.IsNullOrWhiteSpace(vcsType) ? vcsRootName : $"{vcsRootName} ({vcsType})";
+                    sb.AppendLine($"- **{vcsRootLabel}** — {rev.VcsBranch ?? "unknown branch"}: `{rev.Version}`");
+                }
                 sb.AppendLine();
             }
 

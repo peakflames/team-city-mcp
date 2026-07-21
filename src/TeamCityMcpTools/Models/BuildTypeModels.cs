@@ -35,8 +35,17 @@ public class BuildTypeDetails : BuildTypeSummary
     [JsonPropertyName("webUrl")]
     public string? WebUrl { get; set; }
 
-    [JsonPropertyName("vcsRoots")]
+    [JsonPropertyName("vcs-root-entries")]
     public VcsRootsWrapper? VcsRoots { get; set; }
+
+    [JsonPropertyName("templateFlag")]
+    public bool? TemplateFlag { get; set; }
+
+    [JsonPropertyName("templates")]
+    public TemplatesWrapper? Templates { get; set; }
+
+    [JsonPropertyName("settings")]
+    public BuildTypeSettingsWrapper? Settings { get; set; }
 
     [JsonPropertyName("triggers")]
     public TriggersWrapper? Triggers { get; set; }
@@ -46,6 +55,81 @@ public class BuildTypeDetails : BuildTypeSummary
 
     [JsonPropertyName("agentRequirements")]
     public AgentRequirementsWrapper? AgentRequirements { get; set; }
+
+    [JsonPropertyName("snapshot-dependencies")]
+    public SnapshotDependenciesWrapper? SnapshotDependencies { get; set; }
+
+    [JsonPropertyName("artifact-dependencies")]
+    public ArtifactDependenciesWrapper? ArtifactDependencies { get; set; }
+
+    [JsonPropertyName("features")]
+    public BuildTypeFeaturesWrapper? Features { get; set; }
+}
+
+public class BuildTypeFeaturesWrapper
+{
+    [JsonPropertyName("count")]
+    public int? Count { get; set; }
+
+    [JsonPropertyName("feature")]
+    public List<BuildTypeFeatureEntry>? Feature { get; set; }
+}
+
+public class BuildTypeFeatureEntry
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("disabled")]
+    public bool? Disabled { get; set; }
+
+    [JsonPropertyName("inherited")]
+    public bool? Inherited { get; set; }
+
+    [JsonPropertyName("properties")]
+    public BuildTypeFeaturePropertiesWrapper? Properties { get; set; }
+}
+
+public class BuildTypeFeaturePropertiesWrapper
+{
+    [JsonPropertyName("property")]
+    public List<BuildTypeFeatureProperty>? Property { get; set; }
+}
+
+public class BuildTypeFeatureProperty
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("value")]
+    public string? Value { get; set; }
+}
+
+public class TemplatesWrapper
+{
+    [JsonPropertyName("buildType")]
+    public List<BuildTypeSummary>? BuildType { get; set; }
+}
+
+public class BuildTypeSettingsWrapper
+{
+    [JsonPropertyName("property")]
+    public List<BuildTypeSettingProperty>? Property { get; set; }
+}
+
+public class BuildTypeSettingProperty
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("value")]
+    public string? Value { get; set; }
+
+    [JsonPropertyName("inherited")]
+    public bool? Inherited { get; set; }
 }
 
 public class StepsWrapper
@@ -70,6 +154,9 @@ public class StepInfo
 
     [JsonPropertyName("disabled")]
     public bool? Disabled { get; set; }
+
+    [JsonPropertyName("inherited")]
+    public bool? Inherited { get; set; }
 
     [JsonPropertyName("properties")]
     public StepPropertiesWrapper? Properties { get; set; }
@@ -134,7 +221,7 @@ public class VcsRootsWrapper
     [JsonPropertyName("count")]
     public int? Count { get; set; }
 
-    [JsonPropertyName("vcsRootEntry")]
+    [JsonPropertyName("vcs-root-entry")]
     public List<VcsRootEntry>? VcsRootEntry { get; set; }
 }
 
@@ -143,7 +230,13 @@ public class VcsRootEntry
     [JsonPropertyName("id")]
     public string? Id { get; set; }
 
-    [JsonPropertyName("vcsRoot")]
+    [JsonPropertyName("inherited")]
+    public bool? Inherited { get; set; }
+
+    [JsonPropertyName("checkout-rules")]
+    public string? CheckoutRules { get; set; }
+
+    [JsonPropertyName("vcs-root")]
     public VcsRootInfo? VcsRoot { get; set; }
 }
 
@@ -175,6 +268,9 @@ public class TriggerInfo
 
     [JsonPropertyName("type")]
     public string? Type { get; set; }
+
+    [JsonPropertyName("inherited")]
+    public bool? Inherited { get; set; }
 
     [JsonPropertyName("properties")]
     public TriggerPropertiesWrapper? Properties { get; set; }

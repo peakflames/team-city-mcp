@@ -50,6 +50,12 @@ public class BuildDetails : BuildSummary
     [JsonPropertyName("duration")]
     public int? Duration { get; set; }
 
+    [JsonPropertyName("personal")]
+    public bool? Personal { get; set; }
+
+    [JsonPropertyName("composite")]
+    public bool? Composite { get; set; }
+
     [JsonPropertyName("triggered")]
     public TriggeredInfo? Triggered { get; set; }
 
@@ -104,8 +110,26 @@ public class RevisionInfo
     [JsonPropertyName("version")]
     public string? Version { get; set; }
 
-    [JsonPropertyName("vcsBranch")]
+    [JsonPropertyName("vcsBranchName")]
     public string? VcsBranch { get; set; }
+
+    [JsonPropertyName("vcs-root-instance")]
+    public VcsRootInstanceRef? VcsRootInstance { get; set; }
+}
+
+public class VcsRootInstanceRef
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("vcs-root-id")]
+    public string? VcsRootId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("vcsName")]
+    public string? VcsName { get; set; }
 }
 
 public class ProblemOccurrencesWrapper

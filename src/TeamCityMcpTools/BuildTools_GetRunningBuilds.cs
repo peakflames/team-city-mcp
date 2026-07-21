@@ -53,7 +53,7 @@ public partial class BuildTools
 
             foreach (var build in buildList.Build)
             {
-                var started = FormatTcDate(build.StartDate);
+                var started = TeamCityFormat.FormatTcDate(build.StartDate);
                 var progress = build.PercentageComplete.HasValue ? $"{build.PercentageComplete}%" : "—";
                 var agent = build.Agent?.Name ?? "—";
                 var buildTypeName = build.BuildType?.Name ?? "—";

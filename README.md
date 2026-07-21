@@ -10,23 +10,43 @@ The server exposes the following tools for navigating TeamCity projects, inspect
 
 | Tool | Description |
 |------|-------------|
-| `teamcity_list_projects` | Lists all projects in the TeamCity instance with their parent project relationships. |
-| `teamcity_get_project` | Gets details for a specific project by ID, including its child projects and build configurations. |
-| `teamcity_get_project_hierarchy` | Renders the TeamCity project tree as an indented markdown list. Supports optional root project and depth limit. |
-| `teamcity_list_build_types` | Lists build configurations (build types), optionally scoped to a specific project. |
-| `teamcity_get_build_type` | Gets full details for a specific build configuration, including VCS root info and a direct web URL. |
+| `teamcity_list_projects` | Lists projects with parent relationships; optional name/id regex filters. |
+| `teamcity_get_project` | Project details by ID — child projects, build configurations, and templates. |
+| `teamcity_get_project_hierarchy` | Renders the project tree as an indented markdown list; optional root and depth. |
+| `teamcity_get_project_parameters` | Configuration parameters defined on a project (cascade to child build configs); inheritance/name filters. |
+| `teamcity_get_project_features` | Project features — report tabs, graphs, versioned settings, issue trackers, etc. |
+| `teamcity_list_build_types` | Lists build configurations (build types); optional project scope and name/id regex filters. |
+| `teamcity_get_build_type` | Full build config detail — template linkage, settings, VCS roots, triggers, steps, agent reqs, dependencies, build features. |
+| `teamcity_get_build_type_parameters` | Parameters defined on a build configuration (own/inherited/all); name filter. |
+| `teamcity_get_build_type_features` | Build features on a build configuration (Matrix Build, failure conditions, swabra, etc.), grouped by type; own/inherited. |
+| `teamcity_get_build_type_dependency_graph` | Design-time snapshot/artifact dependency graph for a build type (dependencies/dependents/both); markdown or mermaid. |
+| `teamcity_list_templates` | Lists build templates; optional project scope and name/id regex filters. |
+| `teamcity_list_vcs_roots` | Lists VCS roots (id and name); optional project scope and name filter. |
+| `teamcity_get_vcs_root` | Full connection detail for one VCS root (URL, branch spec, auth); secure props redacted. |
+| `teamcity_get_audit_log` | Audit log entries (config/permission changes); optional build-type/project scope and config-changes-only filter. |
 
 ### Build Tools
 
 | Tool | Description |
 |------|-------------|
-| `teamcity_list_builds` | Lists recent builds for a build type, with optional filters for project, branch, status, state, and count. |
-| `teamcity_get_build` | Gets comprehensive details for a specific build, including status, agent, VCS revisions, and build problems. |
-| `teamcity_get_build_status` | Gets a compact single-line status summary for a specific build (state, branch, progress, URL). |
-| `teamcity_get_running_builds` | Gets all currently running builds, optionally filtered by project. |
-| `teamcity_get_queued_builds` | Gets all builds currently waiting in the build queue, optionally filtered by project. |
-| `teamcity_search_builds` | Searches builds across projects using multiple filter criteria (project, build type, branch, status, state, agent, tags, date range). |
-| `teamcity_server_info` | Gets TeamCity server version and instance metadata. |
+| `teamcity_list_builds` | Lists recent builds for a build type; filters for project, branch, status, state, count. |
+| `teamcity_get_build` | Comprehensive build details — status, agent, VCS revisions, build problems, composite flag. |
+| `teamcity_get_build_status` | Compact single-line status (state, branch, progress, URL). |
+| `teamcity_get_running_builds` | All running builds, optionally filtered by project. |
+| `teamcity_get_queued_builds` | All builds in the queue, optionally filtered by project. |
+| `teamcity_search_builds` | Searches builds across projects by multiple criteria (project, build type, branch, status, state, agent, tags, dates). |
+| `teamcity_get_build_changes` | VCS changes (commits) included in a build — author, comment, changed files. |
+| `teamcity_get_build_problems` | Dedicated build problem occurrences (exit-code, OOM, dependency failures) — distinct from test failures. |
+| `teamcity_get_build_dependency_tree` | Walks a build's actual snapshot/artifact dependency chain; per-node status; up/down direction; markdown or mermaid. |
+| `teamcity_get_build_parameters` | Resulting parameters actually applied to a build after overrides; name filter. |
+| `teamcity_get_build_tests` | Test occurrences for a build — accurate summary counts and per-test failure detail (failed/muted/all); composite/matrix-aware with per-sub-build totals. |
+| `teamcity_get_test_history` | Follows one test by name across builds; useful for flakiness or regression onset. |
+| `teamcity_get_build_log_failures` | For failed tests, returns console-log context around each failure by searching the build log. |
+| `teamcity_search_build_log` | Searches a build's full console log by regex/literal with surrounding context. |
+| `teamcity_list_build_artifacts` | Lists artifact files/dirs (including hidden `.teamcity/...`); optional subdirectory navigation. |
+| `teamcity_get_build_artifact_content` | Text content of a single artifact file; refuses binaries and truncates large files. |
+| `teamcity_list_mutes` | Mute details — reason, who/when, scope (project/build config), and resolution policy. |
+| `teamcity_server_info` | TeamCity server version and instance metadata. |
 
 ## Projects
 

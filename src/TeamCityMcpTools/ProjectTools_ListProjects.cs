@@ -4,9 +4,20 @@ public partial class ProjectTools
 {
     [McpServerTool(Name = "teamcity_list_projects"),
         Description(
-            "Lists all projects in the TeamCity instance with their parent project relationships. " +
+            "Lists projects in the TeamCity instance with their parent project relationships. " +
+            "Optional 'nameFilter' matches a case-insensitive regex against the project Name only, and optional " +
+            "'idFilter' matches a case-insensitive regex against the project ID only. " +
+            "Results are capped at 'count' (default 100) — narrow with 'nameFilter'/'idFilter' or raise 'count' to see more. " +
             "Returns a markdown table with columns: ID, Name, Parent Project ID, Description.")]
-    public async Task<string> ListProjects()
+    public async Task<string> ListProjects(
+        [Description("Optional case-insensitive regex matched against the project Name only (e.g. '^MyProject$' for an exact match, 'foo|bar' for alternation).")]
+        string? nameFilter = null,
+
+        [Description("Optional case-insensitive regex matched against the project ID — e.g. to enumerate a subtree by ID prefix like '^Some_Parent_'.")]
+        string? idFilter = null,
+
+        [Description("Maximum number of matching projects to display. Defaults to 100.")]
+        int count = 100)
     {
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
@@ -38,21 +49,47 @@ public partial class ProjectTools
             if (projects is null || projects.Count == 0)
                 return "No projects found.";
 
+            var nameRx = TeamCityFormat.CompileFilter(nameFilter);
+            if (nameRx.IsFailed) return $"ERROR: Invalid nameFilter regex — {nameRx.Errors.First().Message}";
+            var idRx = TeamCityFormat.CompileFilter(idFilter);
+            if (idRx.IsFailed) return $"ERROR: Invalid idFilter regex — {idRx.Errors.First().Message}";
+
+            var filtered = projects.Where(p =>
+                (nameRx.Value is null || nameRx.Value.IsMatch(p.Name ?? "")) &&
+                (idRx.Value is null || idRx.Value.IsMatch(p.Id ?? ""))).ToList();
+
+            var ordered = filtered.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList();
+            var displayed = ordered.Take(count).ToList();
+
             var sb = new StringBuilder();
             sb.AppendLine("# Projects");
             sb.AppendLine();
-            sb.AppendLine($"**Total:** {projects.Count}");
+            if (!string.IsNullOrWhiteSpace(nameFilter))
+                sb.AppendLine($"**Name Filter:** {nameFilter}");
+            if (!string.IsNullOrWhiteSpace(idFilter))
+                sb.AppendLine($"**ID Filter:** {idFilter}");
+            sb.AppendLine($"**Total:** {ordered.Count}");
             sb.AppendLine();
+
+            if (displayed.Count == 0)
+            {
+                sb.AppendLine($"No projects matched nameFilter '{nameFilter}' / idFilter '{idFilter}'.");
+                return sb.ToString();
+            }
+
             sb.AppendLine("| ID | Name | Parent Project ID | Description |");
             sb.AppendLine("|----|------|-------------------|-------------|");
 
-            foreach (var project in projects)
+            foreach (var project in displayed)
             {
                 var desc = string.IsNullOrWhiteSpace(project.Description) ? "—" : project.Description;
                 sb.AppendLine($"| {project.Id} | {project.Name} | {project.ParentProjectId ?? "—"} | {desc} |");
             }
 
-            return sb.ToString();
+            if (ordered.Count > displayed.Count)
+                sb.AppendLine($"\n*{ordered.Count - displayed.Count} more projects not shown — narrow with 'nameFilter' or raise 'count'.*");
+
+            return TeamCityFormat.Clamp(sb.ToString());
         }
         catch (Exception ex)
         {
