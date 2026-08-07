@@ -1,15 +1,11 @@
 namespace TeamCityMcpTools;
 
-public class TeamCityClientFactory(TeamCityConfig config) : ITeamCityClientFactory
+public class TeamCityClientFactory(HttpClient httpClient) : ITeamCityClientFactory
 {
-    private readonly TeamCityConfig _config = config;
+    private readonly HttpClient _httpClient = httpClient;
 
-    public async Task<Result<TeamCityClient>> CreateClientAsync()
+    public Task<Result<TeamCityClient>> CreateClientAsync()
     {
-        var client = new TeamCityClient(_config.ServerUrl, _config.AccessToken);
-        var result = await client.ConnectAsync();
-        if (result.IsFailed)
-            return Result.Fail(result.Errors.First());
-        return Result.Ok(client);
+        return Task.FromResult(Result.Ok(new TeamCityClient(_httpClient)));
     }
 }

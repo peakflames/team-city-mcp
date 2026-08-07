@@ -50,7 +50,7 @@ The server exposes the following tools for navigating TeamCity projects, inspect
 
 ## Projects
 
-- **TeamCityRemoteMcpServer**: ASP.NET Web API-based MCP server for server-based installations (Streamable HTTP or SSE transport)
+- **TeamCityRemoteMcpServer**: ASP.NET Web API-based MCP server for server-based installations (Streamable HTTP transport, stateless)
 - **TeamCityMcpServer**: Console-based MCP server for local workstation installations (stdio transport)
 
 ## Running via Docker & Linux Server (Recommended)
@@ -81,7 +81,6 @@ The server exposes the following tools for navigating TeamCity projects, inspect
 
 4. The server should now be running. MCP clients will connect using:
    - **Streamable HTTP Transport**: `http://{{your-server-ip}}:8080/mcp`
-   - **SSE Transport**: `http://{{your-server-ip}}:8080/sse`
 
 ### Environment Variables
 
@@ -130,8 +129,8 @@ claude mcp add --scope user --transport http teamcity-remote http://{{your-serve
          "autoApprove": [],
          "disabled": false,
          "timeout": 60,
-         "url": "http://{{your-server-ip}}:8080/sse",
-         "transportType": "sse"
+         "url": "http://{{your-server-ip}}:8080/mcp",
+         "transportType": "streamableHttp"
        }
      }
    }

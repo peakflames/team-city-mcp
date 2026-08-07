@@ -34,15 +34,14 @@ pip install psutil
 ```
 
 ### URLs (when running)
-- http://localhost:8080/mcp - MCP streamable HTTP endpoint
-- http://localhost:8080/sse - MCP SSE endpoint
+- http://localhost:8080/mcp - MCP streamable HTTP endpoint (stateless)
 
 ## Architecture
 
 ```
 src/
 ├── TeamCityMcpServer/        # Console app (stdio MCP transport)
-├── TeamCityRemoteMcpServer/  # ASP.NET app (HTTP/SSE MCP transport)
+├── TeamCityRemoteMcpServer/  # ASP.NET app (streamable HTTP MCP transport, stateless)
 └── TeamCityMcpTools/         # Shared library with MCP tools and TeamCity client
 ```
 

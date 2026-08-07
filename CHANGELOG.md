@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Bumped `ModelContextProtocol`/`ModelContextProtocol.AspNetCore` from 1.2.0 to 2.1.0
+- `TeamCityRemoteMcpServer` now runs the MCP HTTP transport in stateless mode (2.x default)
+- `TeamCityClient` now uses a pooled `HttpClient` via `IHttpClientFactory` instead of constructing a new `HttpClient` per call, and no longer performs a preflight `GET app/rest/server` check on every tool invocation
+
+### Removed
+- **BREAKING:** The legacy `/sse` and `/message` SSE transport endpoints are gone from `TeamCityRemoteMcpServer`. Clients must use the Streamable HTTP transport at `/mcp`. The root `/` MCP mount is also removed — `/mcp` is now the only mount point
+
 ## [0.3.0] - 2026-07-21
 
 ### Added
