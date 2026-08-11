@@ -167,7 +167,7 @@ Update version and container tag in `src/TeamCityRemoteMcpServer/TeamCityRemoteM
 
 When the user requests "perform a release":
 
-1. **Update CHANGELOG.md** — Change "Unreleased" to today's date, ensure all changes are documented
+1. **Update CHANGELOG.md** — Change "Unreleased" to `## [X.Y.Z] - YYYY-MM-DD`, ensure all changes are documented per [docs/changelog-generation-rules.md](docs/changelog-generation-rules.md)
 2. **Commit and push develop** — Add explicit files, commit with "Release version X.Y.Z" message, push
 3. **Merge to main** — `git checkout main && git pull && git merge develop --no-ff` with merge commit message, push
 4. **Tag and push** — `git tag -a vX.Y.Z -m "Release version X.Y.Z"`, push tag

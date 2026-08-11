@@ -8,60 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `TeamCityRemoteMcpServer` is now a pure OAuth 2.1 **resource server** — no embedded authorization
-  server. `McpAuth:Issuer` points at an external AS; JwtBearer fetches its discovery document and
-  JWKS via `Authority` (with automatic key-rotation refresh) rather than this server holding or
-  resolving signing keys itself. Gated behind `McpAuth:Enabled` (default `false`, byte-identical
-  anonymous behavior when unset). The SDK auto-serves
-  `/.well-known/oauth-protected-resource/mcp` (RFC 9728) and emits the
-  `WWW-Authenticate: Bearer resource_metadata=...` challenge on `POST /mcp`; token validation pins
-  `RS256`, and checks issuer/audience/lifetime against the configured external AS. A fail-to-boot
-  options validator (`McpAuth:*`) covers the schema (`Issuer`, `MetadataAddress`, `ResourceUri`,
-  `ScopesSupported`, `ClockSkewSeconds`) and allows a Custom-AS-style issuer that has a path. Adds
-  `tests/StubAuthorizationServer/`, a dependency-free stub external AS (discovery, JWKS,
-  `client_credentials` token issuance) for local development and the test suite.
-- Per-caller RBAC. Ships `TeamCityMcpTools/Rbac/` (`IPermissionGate`, `NoOpPermissionGate`,
-  `ToolGate`/`ToolGateSession`, and a hand-written `FrozenDictionary` `ToolResourcePermissionMap`
-  covering all 32 tools across permission groups G1-G6), a `TeamCityToolNames` const class now used
-  by every `[McpServerTool(Name = ...)]` attribute instead of a string literal, and
-  `TeamCityRemoteMcpServer/Rbac/` (`Rbac:Enabled`/`Rbac:AuditOnly` config surface, a
-  `TeamCityIdentityResolver` resolving a JWT claim to a TeamCity user id via `email:`/`username:`
-  lookup, an `AsyncLocal`-backed `IRbacCallContextAccessor` making that identity visible from the
-  sibling DI scope each tool opens via `CreateAsyncScope()`, a central `RbacIdentityFilter`
-  registered via `McpServerOptions.Filters.Request.CallToolFilters`, and a
-  `SerilogMcpAccessAuditSink` emitting one `AccessAuditRecord` per `tools/call`). `Rbac:Enabled=true`
-  with `McpAuth:Enabled=false` fails to boot — RBAC without authentication means no identity for any
-  caller. `teamcity_server_info` is mapped as a deliberate `Ungated` exception (G6), not an omission.
-- Real RBAC enforcement, replacing the always-allow placeholder gate. `TeamCityPermissionGate`
-  queries TeamCity's own `GET /app/rest/users/{locator}/permissions` (`count>=1` rule; batching,
-  inheritance, and global-grant behavior verified live against a TeamCity instance), backed by a
-  capacity-bounded, single-flight, never-caches-errors `TtlCache<TKey,TValue>`
-  (`Rbac/Caching/`). Both the permission cache (`Rbac:PermissionCacheTtlSeconds`, default 120s) and
-  a caching decorator over identity resolution (`CachingIdentityResolver`,
-  `Rbac:IdentityCacheTtlSeconds` positive / fixed 30s negative TTL) are wired in, evicted
-  periodically by `RbacCacheJanitor`. Enforces the tools with a project-scoped argument (required or
-  optional); the remainder allow-and-audit as explicitly deferred, tracked per-tool as required map
-  data (`GateEnforcement`) rather than inferred from resource kind, so an unmapped tool is a compile
-  error and a map miss fail-closed denies at runtime. Extracts the decision logic into
-  `RbacGateDecider` (pure, unit-testable, no HTTP) and fixes two related bugs: a non-string
-  `projectId` argument (e.g. `{"projectId": 123}`) no longer silently falls through to an unchecked
-  allow, and project-scoped tools no longer pass a `buildId`/`buildTypeId` into a project-scoped
-  permission check. Fixes an `AuditOnly` shadow-mode defect where a would-be deny was logged as an
-  `Allow` — `AccessAuditRecord` now carries the gate's true `Decision`/`DecisionReason` plus a
-  separate `Blocked` field, and the audit record is written before `next(...)` runs so a throwing
-  tool body doesn't lose it. Fixes a captive-dependency bug in both the gate and
-  `TeamCityIdentityResolver` (each was becoming a singleton pinning one `HttpClient` handler chain
-  for process life) by resolving `ITeamCityClientFactory` from a fresh `CreateAsyncScope()` per
-  upstream call. A startup warning enumerates the unenforced-tool gap.
-- Fixes RBAC identity resolution: TeamCity returns user ids as a bare JSON number, not a string.
+- OAuth 2.1 bearer-token authentication for `TeamCityRemoteMcpServer`, disabled by default
+  (`McpAuth:Enabled`, default `false` — behavior is unchanged when unset)
+- `McpAuth:Issuer` config to point the server at an external authorization server; the server
+  validates tokens against it and publishes protected-resource metadata at
+  `/.well-known/oauth-protected-resource/mcp` so MCP clients can discover where to authenticate
+- Per-caller RBAC (`Rbac:Enabled`, default `false`), authorizing each tool call against the
+  calling user's own TeamCity permissions instead of the server's access token. Requires
+  `McpAuth:Enabled=true`
+- `Rbac:AuditOnly` mode to log what would be denied without blocking anything, for staged rollout
+- An access-audit record per tool call — caller, tool, and authorization decision — when RBAC is on
 
 ### Changed
-- Bumped `ModelContextProtocol`/`ModelContextProtocol.AspNetCore` from 1.2.0 to 2.1.0
-- `TeamCityRemoteMcpServer` now runs the MCP HTTP transport in stateless mode (2.x default)
-- `TeamCityClient` now uses a pooled `HttpClient` via `IHttpClientFactory` instead of constructing a new `HttpClient` per call, and no longer performs a preflight `GET app/rest/server` check on every tool invocation
+- MCP SDK upgraded to 2.1.0; the HTTP transport now runs in stateless mode
+- Tool calls are faster — the TeamCity client reuses pooled connections and no longer makes a
+  preflight server check on every call
 
 ### Removed
-- **BREAKING:** The legacy `/sse` and `/message` SSE transport endpoints are gone from `TeamCityRemoteMcpServer`. Clients must use the Streamable HTTP transport at `/mcp`. The root `/` MCP mount is also removed — `/mcp` is now the only mount point
+- **BREAKING:** the `/sse` and `/message` SSE endpoints and the root `/` mount are gone. `/mcp`
+  (Streamable HTTP) is the only endpoint — update any client still pointed at the old URLs
 
 ## [0.3.0] - 2026-07-21
 
@@ -136,3 +101,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker support with built-in .NET SDK container capabilities
 - GitHub Actions workflow for automated Docker Hub publishing on version tag push
 - Environment variable support for secure credential management
+
+[Unreleased]: https://github.com/peakflames/team-city-mcp/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/peakflames/team-city-mcp/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/peakflames/team-city-mcp/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/peakflames/team-city-mcp/releases/tag/v0.1.0
