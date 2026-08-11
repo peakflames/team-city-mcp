@@ -85,7 +85,25 @@ public class Program
             .WithTools<ProjectTools>();
 
         var authEnabled = builder.AddMcpAuth(mcpBuilder);
-        builder.AddRbac(mcpBuilder);
+        var rbacEnabled = builder.AddRbac(mcpBuilder);
+
+        if (rbacEnabled)
+        {
+            var deferredTools = ToolResourcePermissionMap.Entries
+                .Where(e => e.Value.Enforcement == GateEnforcement.DeferredToLaterSession)
+                .Select(e => e.Key)
+                .OrderBy(n => n, StringComparer.Ordinal)
+                .ToArray();
+
+            Log.Warning(
+                "RBAC enabled: {EnforcedCount} of {TotalCount} tools enforced this session; " +
+                "{DeferredCount} allow+audit as explicitly unenforced (decisionReason starts with " +
+                "'deferred_'): {DeferredTools}",
+                ToolResourcePermissionMap.Entries.Count - deferredTools.Length,
+                ToolResourcePermissionMap.Entries.Count,
+                deferredTools.Length,
+                string.Join(", ", deferredTools));
+        }
 
         // Test-only seam: lets tests substitute a service (e.g. IPermissionGate) that AddRbac's
         // own Replace() call would otherwise clobber if registered via the earlier `configure`

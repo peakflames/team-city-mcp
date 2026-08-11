@@ -23,12 +23,15 @@ public sealed class SerilogMcpAccessAuditSink : IMcpAccessAuditSink
     {
         _logger.LogInformation(
             AccessAuditEventId,
-            "MCP access audit: tool={ToolName} decision={Decision} resource={Resource} " +
+            "MCP access audit: tool={ToolName} decision={Decision} blocked={Blocked} " +
+            "decisionReason={DecisionReason} resource={Resource} " +
             "permission={Permission} oauthSubject={OAuthSubject} oauthClientId={OAuthClientId} " +
             "jti={Jti} identityClaimValue={IdentityClaimValue} teamCityUserId={TeamCityUserId} " +
             "filteredOutCount={FilteredOutCount} elapsedMs={ElapsedMilliseconds}",
             record.ToolName,
             record.Decision,
+            record.Blocked,
+            record.DecisionReason,
             record.Resource,
             record.Permission,
             record.OAuthSubject,

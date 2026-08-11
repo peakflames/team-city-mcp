@@ -36,6 +36,7 @@ public class RbacLogRedactionTests : IDisposable
     public async Task GatedToolCall_NeverLogsTheBearerTokenOrTheTeamCityPat()
     {
         _factory.Handler.OnUsers("email", Email, TeamCityUserId);
+        _factory.Handler.OnPermissions($"id:{TeamCityUserId}", [(TeamCityPermission.ViewProject, "MyProject")]);
         _factory.Handler.OnProject(
             "MyProject",
             """{"id":"MyProject","name":"My Project","projects":{"project":[]},"buildTypes":{"buildType":[]},"templates":{"buildType":[]}}""");
@@ -62,7 +63,13 @@ public class RbacLogRedactionTests : IDisposable
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
         Assert.True(response.IsSuccessStatusCode);
+
+        // Proves the call was actually allowed (not a JSON-RPC error result, which is still an HTTP
+        // 200) — without this, a permission-check regression that denies every call would still
+        // leave every assertion below passing vacuously.
+        Assert.Contains("My Project", body, StringComparison.Ordinal);
 
         // Positive control — without this, a wiring regression that silently stops capturing logs
         // would make every assertion below pass vacuously.

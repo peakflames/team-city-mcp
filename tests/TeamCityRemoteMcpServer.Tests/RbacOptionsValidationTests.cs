@@ -31,7 +31,7 @@ public class RbacOptionsValidationTests
 
         Assert.True(options.Enabled);
         var gate = factory.Services.GetRequiredService<IPermissionGate>();
-        Assert.IsType<AlwaysAllowPermissionGate>(gate);
+        Assert.IsType<TeamCityPermissionGate>(gate);
     }
 
     [Fact]

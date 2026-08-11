@@ -5,16 +5,12 @@ namespace TeamCityRemoteMcpServer.Rbac;
 /// <summary>
 /// The single central interception point for every <c>tools/call</c> — registered via
 /// <c>services.Configure&lt;McpServerOptions&gt;(o =&gt; o.Filters.Request.CallToolFilters.Add(...))</c>.
-/// Resolves the caller's identity once, looks up the tool's resource kind/permission from
-/// <see cref="ToolResourcePermissionMap"/>, calls into <see cref="IPermissionGate"/>, emits exactly
-/// one <see cref="AccessAuditRecord"/>, and is the single fail-closed short-circuit site. Threading
-/// a <c>RequestContext&lt;CallToolRequestParams&gt;</c> parameter through all 32 tool signatures was
+/// Resolves the caller's identity once, defers the actual decision to <see cref="RbacGateDecider"/>,
+/// emits exactly one <see cref="AccessAuditRecord"/> before ever calling <c>next</c>, and is the
+/// single fail-closed short-circuit site. Threading a
+/// <c>RequestContext&lt;CallToolRequestParams&gt;</c> parameter through all 32 tool signatures was
 /// rejected because a forgotten signature is a silent fail-open; a missing filter registration is
 /// caught once by <see cref="IRbacCallContextAccessor"/>'s null check instead.
-///
-/// This session, <see cref="AlwaysAllowPermissionGate"/> never denies, so the deny branch below is
-/// unenforced in practice — it exists so Session 2's real gate is a drop-in replacement, not a
-/// rewrite of this filter.
 /// </summary>
 public static class RbacIdentityFilter
 {
@@ -43,7 +39,8 @@ public static class RbacIdentityFilter
                 ? await identityResolver.ResolveAsync(identityClaimValue, cancellationToken)
                 : null;
 
-            var resource = ExtractResource(spec.Kind, arguments);
+            var argumentState = RbacGateDecider.TryExtractResource(spec.Kind, arguments, out var extractedResource);
+            var resource = argumentState == RbacGateDecider.ArgumentState.Present ? extractedResource : null;
 
             accessor.Current = new RbacCallContext
             {
@@ -57,13 +54,16 @@ public static class RbacIdentityFilter
 
             try
             {
-                var decision = await DecideAsync(gate, spec, teamCityUserId, resource, toolName, cancellationToken);
-                var allowed = decision.Allowed || options.AuditOnly;
+                var decision = await RbacGateDecider.DecideAsync(
+                    gate, toolName, teamCityUserId, argumentState, resource, cancellationToken);
 
-                var result = allowed
-                    ? await next(request, cancellationToken)
-                    : DeniedResult();
+                // Elapsed here is gate latency only — the number the RBAC budget is actually about —
+                // not the downstream tool body's own latency.
+                var elapsedMs = stopwatch.ElapsedMilliseconds;
+                var blocked = !decision.Allowed && !options.AuditOnly;
 
+                // Recorded before `next(...)` runs: if the tool body throws, the audit record for
+                // this call must still exist.
                 auditSink.Record(new AccessAuditRecord(
                     DateTimeOffset.UtcNow,
                     request.User?.FindFirst("sub")?.Value,
@@ -74,67 +74,19 @@ public static class RbacIdentityFilter
                     toolName,
                     resource,
                     spec.Permission,
-                    allowed ? AccessDecision.Allow : AccessDecision.Deny,
+                    decision.Allowed ? AccessDecision.Allow : AccessDecision.Deny,
+                    decision.Reason,
+                    blocked,
                     null,
-                    stopwatch.ElapsedMilliseconds));
+                    elapsedMs));
 
-                return result;
+                return blocked ? DeniedResult() : await next(request, cancellationToken);
             }
             finally
             {
                 accessor.Current = null;
             }
         };
-    }
-
-    private static async ValueTask<GateDecision> DecideAsync(
-        IPermissionGate gate,
-        ToolGateSpec spec,
-        string? identity,
-        string? resource,
-        string toolName,
-        CancellationToken cancellationToken)
-    {
-        if (!gate.Enabled || spec.Kind == ResourceKind.Ungated)
-            return GateDecision.Allow();
-
-        if (identity is null)
-            return GateDecision.Deny("identity_unresolved");
-
-        return spec.Kind switch
-        {
-            ResourceKind.Project or ResourceKind.BuildType or ResourceKind.Build or ResourceKind.VcsRoot
-                when resource is not null =>
-                await gate.CheckProjectAsync(toolName, identity, resource, cancellationToken),
-            ResourceKind.Global =>
-                await gate.CheckGlobalAsync(toolName, identity, cancellationToken),
-            // CrossProject tools, and Project/BuildType/Build/VcsRoot tools whose optional resource
-            // argument was omitted, are decided by the tool body's own visible-set filtering (once
-            // it exists, in a later session) — not by this pre-check.
-            _ => GateDecision.Allow(),
-        };
-    }
-
-    private static string? ExtractResource(ResourceKind kind, IDictionary<string, JsonElement>? arguments)
-    {
-        if (arguments is null)
-            return null;
-
-        var argumentName = kind switch
-        {
-            ResourceKind.Project => "projectId",
-            ResourceKind.BuildType => "buildTypeId",
-            ResourceKind.Build => "buildId",
-            ResourceKind.VcsRoot => "vcsRootId",
-            _ => null,
-        };
-
-        if (argumentName is null)
-            return null;
-
-        return arguments.TryGetValue(argumentName, out var value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
     }
 
     private static CallToolResult DeniedResult() => new()
