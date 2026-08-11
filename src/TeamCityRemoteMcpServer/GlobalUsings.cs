@@ -1,0 +1,10 @@
+global using TeamCityMcpTools;
+global using Microsoft.AspNetCore.HttpOverrides;
+global using System.Net.Http.Headers;
+global using Microsoft.AspNetCore.Authentication.JwtBearer;
+global using Microsoft.AspNetCore.Authorization;
+global using Microsoft.Extensions.Options;
+global using ModelContextProtocol.AspNetCore.Authentication;
+global using ModelContextProtocol.Authentication;
+global using Serilog;
+global using TeamCityRemoteMcpServer.Auth;

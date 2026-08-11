@@ -1,8 +1,3 @@
-using TeamCityMcpTools;
-using Microsoft.AspNetCore.HttpOverrides;
-using System.Net.Http.Headers;
-using Serilog;
-
 namespace TeamCityRemoteMcpServer;
 
 public class Program
@@ -72,11 +67,13 @@ public class Program
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         });
 
-        builder.Services
+        var mcpBuilder = builder.Services
             .AddMcpServer()
             .WithHttpTransport(o => o.Stateless = true)
             .WithTools<BuildTools>()
             .WithTools<ProjectTools>();
+
+        var authEnabled = builder.AddMcpAuth(mcpBuilder);
 
         var app = builder.Build();
 
@@ -85,9 +82,25 @@ public class Program
             ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
         });
 
+        // UseRouting must run before UseAuthentication/UseAuthorization so that endpoint
+        // metadata (RequireAuthorization) is available by the time the authorization middleware
+        // runs — without an explicit UseRouting call here, the implicit routing insertion point
+        // lands at the first Map* call, which is after these two and would silently turn
+        // authorization into a no-op (every request reaches the endpoint unauthenticated).
+        app.UseRouting();
+
         // Stateless transport maps POST-only streamable HTTP; the legacy fake-SSE GET
         // workaround for Cline/TypeScript SDK is gone along with /sse.
-        app.MapMcp("mcp");
+        if (authEnabled)
+        {
+            app.UseAuthentication();
+            app.UseAuthorization();
+            app.MapMcp("mcp").RequireAuthorization(OAuthScopes.ReadPolicy);
+        }
+        else
+        {
+            app.MapMcp("mcp");
+        }
 
         return app;
     }

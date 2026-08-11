@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TeamCityRemoteMcpServer\TeamCityRemoteMcpServer.csproj" />
+    <ProjectReference Include="..\StubAuthorizationServer\StubAuthorizationServer.csproj" />
   </ItemGroup>
 
 </Project>
