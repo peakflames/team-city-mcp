@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_build_type_dependency_graph"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildTypeDependencyGraph),
         Description(
             "Renders the design-time dependency configuration graph for a build type — both snapshot " +
             "and artifact dependencies, distinct from any actual build run. Shows forward Dependencies " +

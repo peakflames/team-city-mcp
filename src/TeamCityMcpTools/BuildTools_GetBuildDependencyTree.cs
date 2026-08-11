@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build_dependency_tree"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildDependencyTree),
         Description(
             "Walks a build's actual dependency chain — both snapshot and artifact dependencies — and " +
             "renders an indented markdown tree (default) or a Mermaid graph (format:'mermaid'), with per-node " +

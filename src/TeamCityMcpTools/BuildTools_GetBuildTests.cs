@@ -5,7 +5,7 @@ public partial class BuildTools
     private const int TestDetailsMaxChars = 1200;
     private const int MaxChainPartsRendered = 30;
 
-    [McpServerTool(Name = "teamcity_get_build_tests"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildTests),
         Description(
             "Gets test occurrences for a specific build, including summary counts (passed/failed/ignored/muted/newFailed) " +
             "and per-test detail such as failure text, whether it's a new failure, and the build it's been failing since. " +

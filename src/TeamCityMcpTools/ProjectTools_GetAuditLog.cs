@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_audit_log"),
+    [McpServerTool(Name = TeamCityToolNames.GetAuditLog),
         Description(
             "Gets TeamCity audit log entries (configuration changes, permission changes, etc.), " +
             "optionally scoped to a build type or project. By default this includes every audit event, " +

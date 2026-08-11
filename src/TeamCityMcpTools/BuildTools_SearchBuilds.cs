@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_search_builds"),
+    [McpServerTool(Name = TeamCityToolNames.SearchBuilds),
         Description(
             "Searches builds across projects using multiple filter criteria. At least one filter must be provided. " +
             "Returns a markdown table with columns: ID, Number, Status, Build Type, Project, Branch, Started, Finished, URL.")]

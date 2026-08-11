@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build_changes"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildChanges),
         Description(
             "Gets the VCS changes (commits) included in a build, with author, comment, and changed " +
             "files — useful for finding what code change triggered or is included in a build.")]

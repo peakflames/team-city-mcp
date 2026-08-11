@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_list_projects"),
+    [McpServerTool(Name = TeamCityToolNames.ListProjects),
         Description(
             "Lists projects in the TeamCity instance with their parent project relationships. " +
             "Optional 'nameFilter' matches a case-insensitive regex against the project Name only, and optional " +

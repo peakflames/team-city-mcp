@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuild),
         Description(
             "Gets comprehensive details for a specific TeamCity build, including status, agent, " +
             "VCS revisions, build problems, and whether the build is composite (a matrix/build-chain build whose " +

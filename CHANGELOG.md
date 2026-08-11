@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `TeamCityRemoteMcpServer` is now a pure OAuth 2.1 **resource server** — no embedded authorization
+  server. `McpAuth:Issuer` points at an external AS (an Okta Custom Authorization Server, or an
+  internal shared AS); JwtBearer fetches its discovery document and JWKS via `Authority` (with
+  automatic key-rotation refresh) rather than this server holding or resolving signing keys itself.
+  Gated behind `McpAuth:Enabled` (default `false`, byte-identical anonymous behavior when unset).
+  The SDK auto-serves `/.well-known/oauth-protected-resource/mcp` (RFC 9728) and emits the
+  `WWW-Authenticate: Bearer resource_metadata=...` challenge on `POST /mcp`; token validation pins
+  `RS256`, and checks issuer/audience/lifetime against the configured external AS. A fail-to-boot
+  options validator (`McpAuth:*`) covers the surviving schema (`Issuer`, `MetadataAddress`,
+  `ResourceUri`, `ScopesSupported`, `ClockSkewSeconds`) — an Okta Custom AS issuer legitimately has
+  a path, unlike an embedded issuer, so that's explicitly allowed. Adds
+  `tests/StubAuthorizationServer/`, a dependency-free stub external AS (discovery, JWKS,
+  `client_credentials` token issuance) for local development and the test suite.
+- Phase 2 (session 1): RBAC plumbing and the identity spike, with **zero enforcement** — the
+  gate is always-allow this session. Ships `TeamCityMcpTools/Rbac/` (`IPermissionGate`,
+  `NoOpPermissionGate`, `ToolGate`/`ToolGateSession`, and a hand-written `FrozenDictionary`
+  `ToolResourcePermissionMap` covering all 32 tools across groups G1-G6 from the RBAC design doc),
+  a `TeamCityToolNames` const class now used by every `[McpServerTool(Name = ...)]` attribute
+  instead of a string literal, and `TeamCityRemoteMcpServer/Rbac/` (`Rbac:Enabled`/`Rbac:AuditOnly`
+  config surface, `AlwaysAllowPermissionGate`, a `TeamCityIdentityResolver` resolving a JWT claim to
+  a TeamCity user id via `email:`/`username:` lookup, an `AsyncLocal`-backed
+  `IRbacCallContextAccessor`, a central `RbacIdentityFilter` registered via
+  `McpServerOptions.Filters.Request.CallToolFilters`, and a `SerilogMcpAccessAuditSink` emitting one
+  `AccessAuditRecord` per `tools/call`). `Rbac:Enabled=true` with `McpAuth:Enabled=false` fails to
+  boot — RBAC without authentication means no identity for any caller. `teamcity_server_info` is
+  mapped as a deliberate `Ungated` exception (G6), not an omission. **The session's headline
+  result:** a spike test proves a caller's identity, resolved once by the filter into an
+  `AsyncLocal`, is visible from an independently-created sibling DI scope — the same relationship a
+  gated tool body's own `CreateAsyncScope()` will have to the filter in a later session — so no
+  `RequestContext<CallToolRequestParams>` parameter needs to be threaded through all 32 tool
+  signatures. Adds the first `tools/call` test harness (`FakeTeamCityHandler`, `TeamCityFakeFactory`)
+  the repo has ever had — previously only `initialize`/`tools/list` were covered. Test suite: 317 ->
+  334. No tool body is edited this session beyond the `Name =` const swap; nothing is enforced; both
+  hosts default to `NoOpPermissionGate`. See
+  `dto-team-city-mcp/docs/teamcity-mcp-auth-implementation-tracker.md` for the resolved `[UNCLEAR]`
+  and the remaining session plan
+
 ### Changed
 - Bumped `ModelContextProtocol`/`ModelContextProtocol.AspNetCore` from 1.2.0 to 2.1.0
 - `TeamCityRemoteMcpServer` now runs the MCP HTTP transport in stateless mode (2.x default)

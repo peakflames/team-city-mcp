@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_project_parameters"),
+    [McpServerTool(Name = TeamCityToolNames.GetProjectParameters),
         Description(
             "Gets the configuration parameters defined on a TeamCity project — the same values shown in the " +
             "TeamCity project 'Parameters' admin page. Project parameters cascade to every build configuration " +

@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_build_type"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildType),
         Description(
             "Gets full details for a specific TeamCity build configuration, including template linkage, general " +
             "settings, VCS roots, triggers, build steps, agent requirements, and snapshot/artifact dependencies. " +

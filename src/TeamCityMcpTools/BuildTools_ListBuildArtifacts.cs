@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_list_build_artifacts"),
+    [McpServerTool(Name = TeamCityToolNames.ListBuildArtifacts),
         Description(
             "Lists artifact files and directories produced by a build, including hidden " +
             "'.teamcity/...' entries (e.g. build settings digests). Optionally navigate into a " +

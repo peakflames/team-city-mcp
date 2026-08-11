@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build_parameters"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildParameters),
         Description(
             "Gets the resulting build parameters (configuration parameters, system properties, and " +
             "environment variables) that were actually applied to a build after all overrides. " +

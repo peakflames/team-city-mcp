@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_build_type_parameters"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildTypeParameters),
         Description(
             "Gets the configuration parameters defined on a TeamCity build configuration (not a specific build) — " +
             "the same values shown in the TeamCity 'Parameters' admin page. Each parameter shows whether it is " +

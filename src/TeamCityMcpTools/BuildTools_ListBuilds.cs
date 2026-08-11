@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_list_builds"),
+    [McpServerTool(Name = TeamCityToolNames.ListBuilds),
         Description(
             "Lists recent builds for a TeamCity build type, with optional filters for project, " +
             "branch, status, state, and count. Returns a markdown table with columns: ID, Number, Status, Branch, Started, Finished, URL.")]

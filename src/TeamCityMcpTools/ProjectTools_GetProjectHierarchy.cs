@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_project_hierarchy"),
+    [McpServerTool(Name = TeamCityToolNames.GetProjectHierarchy),
         Description(
             "Renders the TeamCity project tree as an indented markdown list showing parent/child nesting. " +
             "Optionally start from a specific project ID (defaults to root). " +

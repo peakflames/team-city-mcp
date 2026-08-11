@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build_status"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildStatus),
         Description(
             "Gets a compact status summary for a specific build. " +
             "Returns a single-line status showing state, branch, progress (if running), and URL.")]

@@ -5,7 +5,7 @@ public partial class BuildTools
     private const int ArtifactContentMaxBytes = 40_000;
     private const int ArtifactContentMaxLines = 500;
 
-    [McpServerTool(Name = "teamcity_get_build_artifact_content"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildArtifactContent),
         Description(
             "Gets the text content of a single build artifact file (e.g. a log, report, or settings " +
             "digest). Refuses binary files and truncates large text files to the first "

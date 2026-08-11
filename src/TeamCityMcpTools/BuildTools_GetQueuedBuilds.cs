@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_queued_builds"),
+    [McpServerTool(Name = TeamCityToolNames.GetQueuedBuilds),
         Description(
             "Gets all builds currently waiting in the build queue, optionally filtered by project. " +
             "Returns a markdown table with columns: ID, Build Type, Project, Branch, Triggered By, Wait Reason, URL.")]

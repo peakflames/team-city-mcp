@@ -35,15 +35,23 @@ public class Program
         }
     }
 
-    public static WebApplication BuildApp(string[] args)
+    public static WebApplication BuildApp(
+        string[] args,
+        Action<WebApplicationBuilder>? configure = null,
+        Action<WebApplicationBuilder>? postAuthConfigure = null)
     {
         var builder = WebApplication.CreateBuilder(args);
+        configure?.Invoke(builder);
 
-        // Resolve config — env vars take precedence over appsettings
-        var serverUrl   = Environment.GetEnvironmentVariable("TEAM_CITY_URL")
+        // Resolve config — env vars take precedence over appsettings.
+        // Read through IConfiguration (which already includes env vars via the default
+        // AddEnvironmentVariables() source) rather than Environment.GetEnvironmentVariable
+        // directly, so tests can inject values via ConfigureAppConfiguration without mutating
+        // real process-wide env vars.
+        var serverUrl   = builder.Configuration["TEAM_CITY_URL"]
                           ?? builder.Configuration["TeamCityConfig:ServerUrl"]
                           ?? string.Empty;
-        var accessToken = Environment.GetEnvironmentVariable("TEAM_CITY_ACCESS_TOKEN") ?? string.Empty;
+        var accessToken = builder.Configuration["TEAM_CITY_ACCESS_TOKEN"] ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(serverUrl))
             throw new InvalidOperationException(
@@ -58,6 +66,9 @@ public class Program
         Log.Information("Loaded TeamCity configuration for server: {ServerUrl}", serverUrl);
 
         builder.Services.AddSerilog();
+        // Default no-op; AddRbac's enabled branch Replace()s this rather than Add/TryAdd, which
+        // removes all registration-ordering fragility between the two calls.
+        builder.Services.AddSingleton<IPermissionGate, NoOpPermissionGate>();
         builder.Services.AddSingleton(new TeamCityConfig(serverUrl, accessToken));
         builder.Services.AddHttpClient<ITeamCityClientFactory, TeamCityRemoteClientFactory>((sp, client) =>
         {
@@ -74,6 +85,12 @@ public class Program
             .WithTools<ProjectTools>();
 
         var authEnabled = builder.AddMcpAuth(mcpBuilder);
+        builder.AddRbac(mcpBuilder);
+
+        // Test-only seam: lets tests substitute a service (e.g. IPermissionGate) that AddRbac's
+        // own Replace() call would otherwise clobber if registered via the earlier `configure`
+        // callback, which always runs before AddMcpAuth/AddRbac.
+        postAuthConfigure?.Invoke(builder);
 
         var app = builder.Build();
 

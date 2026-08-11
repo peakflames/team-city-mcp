@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_test_history"),
+    [McpServerTool(Name = TeamCityToolNames.GetTestHistory),
         Description(
             "Follows a single test by name across builds, optionally scoped to a build type, showing " +
             "status/duration/branch per run. Useful for spotting flakiness or when a test started failing.")]

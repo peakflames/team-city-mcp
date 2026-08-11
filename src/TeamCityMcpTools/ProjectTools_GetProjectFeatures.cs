@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_project_features"),
+    [McpServerTool(Name = TeamCityToolNames.GetProjectFeatures),
         Description(
             "Gets the project features configured on a TeamCity project — report tabs, build/project graphs, " +
             "versioned settings, issue trackers, and similar project-level integrations shown in the TeamCity " +

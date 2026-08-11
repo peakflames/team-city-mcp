@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build_problems"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildProblems),
         Description(
             "Gets dedicated build problem occurrences for a specific build (e.g. exit-code failures, " +
             "OOM, snapshot dependency failures) — distinct from test failures and from the problem " +

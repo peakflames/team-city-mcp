@@ -5,7 +5,7 @@ public partial class BuildTools
     private const int LogSearchMaxOutputBytes = 40_000;
     private const long LogSearchMaxScanBytes = 100_000_000;
 
-    [McpServerTool(Name = "teamcity_search_build_log"),
+    [McpServerTool(Name = TeamCityToolNames.SearchBuildLog),
         Description(
             "Searches a build's full console log (downloaded server-side) for a regex or literal pattern and " +
             "returns matched lines with surrounding context, merging overlapping windows. Use this to find " +

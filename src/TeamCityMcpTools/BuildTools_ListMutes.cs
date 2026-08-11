@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_list_mutes"),
+    [McpServerTool(Name = TeamCityToolNames.ListMutes),
         Description(
             "Gets TeamCity mute details from /app/rest/mutes — the reason/comment, who muted it and when, the " +
             "scope (project or build configuration(s)) it applies to, and its resolution policy ('manually', " +

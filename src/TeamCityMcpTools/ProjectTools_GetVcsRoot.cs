@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_vcs_root"),
+    [McpServerTool(Name = TeamCityToolNames.GetVcsRoot),
         Description(
             "Gets full connection details for a specific TeamCity VCS root — repository URL, branch spec, " +
             "authentication method, and other VCS-type-specific settings. Secure properties (e.g. passwords) " +

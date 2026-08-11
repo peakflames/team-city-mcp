@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_running_builds"),
+    [McpServerTool(Name = TeamCityToolNames.GetRunningBuilds),
         Description(
             "Gets all currently running builds, optionally filtered by project. " +
             "Returns a markdown table with columns: ID, Number, Build Type, Project, Branch, Agent, Started, Progress%, URL.")]

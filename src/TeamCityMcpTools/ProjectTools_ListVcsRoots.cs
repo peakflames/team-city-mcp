@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_list_vcs_roots"),
+    [McpServerTool(Name = TeamCityToolNames.ListVcsRoots),
         Description(
             "Lists TeamCity VCS roots (id and name only). Optionally scoped to a specific project. " +
             "Use 'teamcity_get_vcs_root' for full connection details on a single root. " +

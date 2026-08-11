@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_project"),
+    [McpServerTool(Name = TeamCityToolNames.GetProject),
         Description(
             "Gets details for a specific TeamCity project by ID, including its child projects, build configurations, " +
             "and build templates. Returns a markdown document with project metadata, a child projects table, a " +

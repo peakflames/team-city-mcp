@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build_log_failures"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildLogFailures),
         Description(
             "For a build's failed tests, finds and returns the console log context around each failure by " +
             "searching the build log for each failed test's name. Combines the test's failure details from the " +
