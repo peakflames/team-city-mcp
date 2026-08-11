@@ -16,7 +16,11 @@ public sealed class FakeTeamCityHandler : HttpMessageHandler
     private readonly List<Route> _routes = [];
 
     /// <summary>Fakes <c>GET app/rest/users?locator={dimension}:{value}...</c>. Pass
-    /// <paramref name="userId"/> = null for a zero-match (unresolvable identity) response.</summary>
+    /// <paramref name="userId"/> = null for a zero-match (unresolvable identity) response.
+    /// <paramref name="userId"/> is rendered as a bare JSON number — TeamCity's real API returns
+    /// user ids unquoted, unlike project/buildType ids (verified live against
+    /// a production TeamCity instance, which caught a real string/int deserialization mismatch this fake
+    /// had been masking).</summary>
     public FakeTeamCityHandler OnUsers(string locatorDimension, string value, string? userId)
     {
         _routes.Add(new Route(
@@ -24,7 +28,7 @@ public sealed class FakeTeamCityHandler : HttpMessageHandler
                    QueryContains(req.RequestUri!, "locator", $"{locatorDimension}:{value}"),
             _ => JsonResponse(userId is null
                 ? """{"count":0}"""
-                : "{\"count\":1,\"user\":[{\"id\":\"" + userId + "\"}]}")));
+                : "{\"count\":1,\"user\":[{\"id\":" + userId + "}]}")));
         return this;
     }
 

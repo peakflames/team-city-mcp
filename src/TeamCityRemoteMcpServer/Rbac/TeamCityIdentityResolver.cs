@@ -56,10 +56,10 @@ public sealed class TeamCityIdentityResolver : IIdentityResolver
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
             var result = JsonSerializer.Deserialize(json, RbacJsonContext.Default.RbacUserLookupResponse);
 
-            if (result?.Count != 1 || result.User is not { Count: 1 } users)
+            if (result?.Count != 1 || result.User is not { Count: 1 } users || users[0].Id is not { } id)
                 return null;
 
-            return users[0].Id;
+            return id.ToString(CultureInfo.InvariantCulture);
         }
         catch (Exception ex)
         {

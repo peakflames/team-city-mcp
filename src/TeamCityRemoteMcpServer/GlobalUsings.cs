@@ -7,6 +7,8 @@ global using Microsoft.AspNetCore.HttpOverrides;
 global using ModelContextProtocol.Server;
 global using System.Collections.Frozen;
 global using System.Diagnostics;
+global using System.Globalization;
+global using System.Diagnostics.CodeAnalysis;
 global using System.Net;
 global using System.Net.Http.Headers;
 global using System.Text.Json;
