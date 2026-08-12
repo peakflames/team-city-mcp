@@ -21,6 +21,7 @@ public static class TokenEndpoint
         var audience = FirstNonEmpty(form["aud"].ToString(), state.DefaultAudience);
         var subject = FirstNonEmpty(form["sub"].ToString(), state.DefaultSubject);
         var scope = FirstNonEmpty(form["scope"].ToString(), state.DefaultScope);
+        var email = form["email"].ToString();
         var lifetimeSeconds = int.TryParse(form["exp_seconds"].ToString(), out var overrideSeconds)
             ? overrideSeconds
             : state.DefaultLifetimeSeconds;
@@ -34,6 +35,15 @@ public static class TokenEndpoint
             ["exp"] = Jwt.ToUnixTimeSeconds(now.AddSeconds(lifetimeSeconds)),
             ["scope"] = scope,
         };
+
+        // Optional passthrough for RBAC identity-claim testing: RbacOptions.IdentityClaim
+        // defaults to "email", which this stub otherwise never emits. Left out of the claim
+        // set entirely (not even empty-string) when the caller doesn't ask for it, so every
+        // existing token shape and test assertion is unaffected.
+        if (!string.IsNullOrEmpty(email))
+        {
+            claims["email"] = email;
+        }
 
         var signingKey = state.SignWithWrongKey ? RSA.Create(2048) : SigningKey.Rsa;
         var accessToken = Jwt.CreateSigned(claims, signingKey, SigningKey.KeyId);
