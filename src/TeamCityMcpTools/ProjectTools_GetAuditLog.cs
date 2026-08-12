@@ -25,6 +25,11 @@ public partial class ProjectTools
         [Description("Maximum number of audit events to return. Defaults to 50.")]
         int count = 50)
     {
+        if (!string.IsNullOrWhiteSpace(buildTypeId) && !TeamCityLocator.IsSafeId(buildTypeId))
+            return $"ERROR: Invalid buildTypeId '{buildTypeId}'.";
+        if (!string.IsNullOrWhiteSpace(affectedProjectId) && !TeamCityLocator.IsSafeId(affectedProjectId))
+            return $"ERROR: Invalid affectedProjectId '{affectedProjectId}'.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -72,7 +77,7 @@ public partial class ProjectTools
                 sb.AppendLine($"**Project Filter:** {affectedProjectId}");
             if (configChangesOnly)
                 sb.AppendLine("**Filter:** configuration changes only");
-            sb.AppendLine($"**Count:** {audit.Count ?? 0}");
+            sb.AppendLine($"**Count:** {audit.AuditEvent?.Count ?? 0}");
             sb.AppendLine();
 
             if (audit.AuditEvent is not { Count: > 0 } events)

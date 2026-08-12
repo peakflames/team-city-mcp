@@ -50,6 +50,11 @@ public partial class BuildTools
         if (!hasFilter)
             return "ERROR: At least one search filter is required (projectId, buildTypeId, branch, status, state, agentName, tags, sinceDate, or untilDate).";
 
+        if (!string.IsNullOrWhiteSpace(projectId) && !TeamCityLocator.IsSafeId(projectId))
+            return $"ERROR: Invalid projectId '{projectId}'.";
+        if (!string.IsNullOrWhiteSpace(buildTypeId) && !TeamCityLocator.IsSafeId(buildTypeId))
+            return $"ERROR: Invalid buildTypeId '{buildTypeId}'.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -66,24 +71,24 @@ public partial class BuildTools
             if (!string.IsNullOrWhiteSpace(projectId))
                 locatorParts.Add($"affectedProject:(id:{projectId})");
             if (!string.IsNullOrWhiteSpace(buildTypeId))
-                locatorParts.Add($"buildType:id:{buildTypeId}");
+                locatorParts.Add($"buildType:(id:{buildTypeId})");
             if (!string.IsNullOrWhiteSpace(branch))
-                locatorParts.Add($"branch:{branch}");
+                locatorParts.Add(TeamCityLocator.Dimension("branch", branch));
             if (!string.IsNullOrWhiteSpace(status))
-                locatorParts.Add($"status:{status.ToUpperInvariant()}");
+                locatorParts.Add(TeamCityLocator.Dimension("status", status.ToUpperInvariant()));
             if (!string.IsNullOrWhiteSpace(state))
-                locatorParts.Add($"state:{state.ToLowerInvariant()}");
+                locatorParts.Add(TeamCityLocator.Dimension("state", state.ToLowerInvariant()));
             if (!string.IsNullOrWhiteSpace(agentName))
-                locatorParts.Add($"agentName:{agentName}");
+                locatorParts.Add(TeamCityLocator.Dimension("agentName", agentName));
             if (!string.IsNullOrWhiteSpace(tags))
-                locatorParts.Add($"tag:{tags}");
+                locatorParts.Add(TeamCityLocator.Dimension("tag", tags));
             if (!string.IsNullOrWhiteSpace(sinceDate))
-                locatorParts.Add($"sinceDate:{sinceDate}");
+                locatorParts.Add(TeamCityLocator.Dimension("sinceDate", sinceDate));
             if (!string.IsNullOrWhiteSpace(untilDate))
-                locatorParts.Add($"untilDate:{untilDate}");
+                locatorParts.Add(TeamCityLocator.Dimension("untilDate", untilDate));
 
             var locator = string.Join(",", locatorParts);
-            var fields = "build(id,number,status,state,branchName,startDate,finishDate,buildType(name,projectName),webUrl)";
+            var fields = "build(id,number,status,state,branchName,startDate,finishDate,buildType(id,name,projectId,projectName),webUrl)";
             var url = $"app/rest/builds?locator={Uri.EscapeDataString(locator)}&fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
@@ -96,18 +101,22 @@ public partial class BuildTools
             var json = await response.Content.ReadAsStringAsync();
             var buildList = JsonSerializer.Deserialize(json, TeamCityJsonContext.Default.BuildListResponse);
 
-            if (buildList?.Build is null || buildList.Build.Count == 0)
+            var builds = (IReadOnlyList<BuildSummary>?)buildList?.Build ?? [];
+            builds = await ToolGate.FilterByVisibleSetAsync(
+                _serviceProvider, TeamCityToolNames.SearchBuilds, builds, b => b.BuildType?.ProjectId);
+
+            if (builds.Count == 0)
                 return "No builds found matching the specified filters.";
 
             var sb = new StringBuilder();
             sb.AppendLine("# Build Search Results");
             sb.AppendLine();
-            sb.AppendLine($"**Count:** {buildList.Build.Count}");
+            sb.AppendLine($"**Count:** {builds.Count}");
             sb.AppendLine();
             sb.AppendLine("| ID | Number | Status | Build Type | Project | Branch | Started | Finished | URL |");
             sb.AppendLine("|----|--------|--------|------------|---------|--------|---------|----------|-----|");
 
-            foreach (var build in buildList.Build)
+            foreach (var build in builds)
             {
                 var started = TeamCityFormat.FormatTcDate(build.StartDate);
                 var finished = TeamCityFormat.FormatTcDate(build.FinishDate);

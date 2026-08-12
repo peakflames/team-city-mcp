@@ -45,7 +45,9 @@ public sealed class TeamCityPermissionGate : IPermissionGate
 
     private readonly IServiceProvider _serviceProvider;
     private readonly Caching.TtlCache<Caching.PermissionCacheKey, bool> _permissionCache;
+    private readonly Caching.TtlCache<Caching.VisibleSetCacheKey, VisibleProjectSet> _visibleSetCache;
     private readonly TimeSpan _permissionTtl;
+    private readonly TimeSpan _visibleSetTtl;
     private readonly ILogger<TeamCityPermissionGate> _logger;
 
     private int _consecutiveFailures;
@@ -61,6 +63,9 @@ public sealed class TeamCityPermissionGate : IPermissionGate
         _permissionTtl = TimeSpan.FromSeconds(options.Value.PermissionCacheTtlSeconds);
         _permissionCache = new Caching.TtlCache<Caching.PermissionCacheKey, bool>(
             options.Value.MaxCacheEntries, timeProvider, logger, "Rbac:PermissionCache");
+        _visibleSetTtl = TimeSpan.FromSeconds(options.Value.VisibleSetCacheTtlSeconds);
+        _visibleSetCache = new Caching.TtlCache<Caching.VisibleSetCacheKey, VisibleProjectSet>(
+            options.Value.MaxVisibleSetCacheEntries, timeProvider, logger, "Rbac:VisibleSetCache");
     }
 
     public bool Enabled => true;
@@ -68,6 +73,12 @@ public sealed class TeamCityPermissionGate : IPermissionGate
     /// <summary>Exposed so <c>AddRbac</c> can register this instance's cache under
     /// <see cref="Caching.IEvictableCache"/> for <see cref="Caching.RbacCacheJanitor"/>.</summary>
     internal Caching.IEvictableCache Cache => _permissionCache;
+
+    /// <summary>Exposed for the same reason as <see cref="Cache"/> — a distinct cache instance
+    /// (visible-set entries are thousands of strings each; a permission entry is one <c>bool</c>),
+    /// so it gets its own capacity knob, <c>Rbac:MaxVisibleSetCacheEntries</c>, rather than sharing
+    /// <c>Rbac:MaxCacheEntries</c>.</summary>
+    internal Caching.IEvictableCache VisibleSetCache => _visibleSetCache;
 
     public async ValueTask<GateDecision> CheckProjectAsync(
         string toolName, string identity, string projectId, CancellationToken cancellationToken = default)
@@ -180,70 +191,109 @@ public sealed class TeamCityPermissionGate : IPermissionGate
         }
     }
 
-    /// <summary>Not consulted by any call site this session — the visible-set cache lands in
-    /// Session 4. When it is called, "any project-less entry present" (a global grant, probe 8) must
-    /// be treated as "granted everywhere"; representing that as a finite set is Session 4's problem,
-    /// so this best-effort implementation only returns the concrete project ids TeamCity named and
-    /// logs a warning if a global grant was seen.</summary>
-    public async ValueTask<IReadOnlyCollection<string>> GetVisibleProjectsAsync(
+    /// <summary>Cached (<c>Rbac:VisibleSetCacheTtlSeconds</c>) by <c>(identity, permission)</c> — a
+    /// G4 tool's visible-set query is a ~500 KB response in the worst case, unlike the single-bit
+    /// answer <see cref="CheckProjectAsync"/> caches. A project-less entry in the response (a global
+    /// grant) becomes <see cref="VisibleProjectSet.IsGlobal"/>, never a finite list — a server admin
+    /// must never have "every project that exists today" materialized and frozen at query time.
+    /// </summary>
+    public async ValueTask<VisibleProjectSet> GetVisibleProjectSetAsync(
         string toolName, string identity, CancellationToken cancellationToken = default)
     {
         if (!ToolResourcePermissionMap.TryGet(toolName, out var spec) || spec.Permission is null)
-            return [];
+            return VisibleProjectSet.Scoped(new HashSet<string>(StringComparer.Ordinal));
+
+        var key = new Caching.VisibleSetCacheKey(identity, spec.Permission);
 
         try
         {
-            ValidateIdentity(identity);
-
-            var locator = $"permission:{spec.Permission}";
-            var url = BuildPermissionsUrl(identity, locator, multiProject: true);
-
-            using var response = await GetPermissionsAsync(url, cancellationToken);
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            var parsed = DeserializeAssignments(json);
-
-            var projectIds = new HashSet<string>(StringComparer.Ordinal);
-            var sawGlobalGrant = false;
-
-            foreach (var entry in parsed.PermissionAssignment ?? [])
-            {
-                if (entry.Project?.Id is { } id)
-                    projectIds.Add(id);
-                else
-                    sawGlobalGrant = true;
-            }
-
-            if (sawGlobalGrant)
-            {
-                _logger.LogWarning(
-                    "RBAC visible-project query for identity {Identity} includes a global grant, " +
-                    "which cannot be represented as a finite set this session — only named projects " +
-                    "are returned. Full handling lands with the Session 4 visible-set cache.",
-                    identity);
-            }
-
-            return projectIds;
+            return await _visibleSetCache.GetOrAddAsync(
+                key,
+                _visibleSetTtl,
+                ct => QueryVisibleSetAsync(identity, spec.Permission, ct),
+                cancellationToken);
         }
         catch (PermissionQueryException)
         {
             // Fail closed: an inability to compute the visible set is never "visible everywhere".
-            return [];
+            return VisibleProjectSet.Scoped(new HashSet<string>(StringComparer.Ordinal));
         }
     }
 
-    public async ValueTask<IReadOnlyCollection<T>> FilterAllowedProjectsAsync<T>(
-        string toolName,
-        string identity,
-        IReadOnlyCollection<T> items,
-        Func<T, string?> projectIdSelector,
-        CancellationToken cancellationToken = default)
+    /// <summary>G5 fan-out pruning: returns exactly the granted subset of <paramref name="projectIds"/>,
+    /// reusing the same batched <see cref="QueryBatchAsync"/>/<see cref="ChunkProjectIds"/> machinery
+    /// as <see cref="CheckProjectsAsync"/>, but never denies the whole call over a partial grant — the
+    /// caller prunes the ungranted ids instead of being denied outright. Also warms the per-project
+    /// permission cache exactly like <see cref="CheckProjectsAsync"/> does, so a later single-project
+    /// check on one of these same ids is a cache hit.</summary>
+    public async ValueTask<IReadOnlySet<string>> FilterProjectsAsync(
+        string toolName, string identity, IReadOnlyCollection<string> projectIds, CancellationToken cancellationToken = default)
     {
-        var visible = await GetVisibleProjectsAsync(toolName, identity, cancellationToken);
-        if (visible.Count == 0)
-            return [];
+        if (projectIds.Count == 0)
+            return new HashSet<string>(StringComparer.Ordinal);
 
-        var visibleSet = visible as HashSet<string> ?? new HashSet<string>(visible, StringComparer.Ordinal);
-        return items.Where(item => projectIdSelector(item) is { } id && visibleSet.Contains(id)).ToArray();
+        if (!ToolResourcePermissionMap.TryGet(toolName, out var spec) || spec.Permission is null)
+            return new HashSet<string>(StringComparer.Ordinal);
+
+        var permission = spec.CrossProjectPermission ?? spec.Permission;
+        var distinctIds = projectIds.Distinct(StringComparer.Ordinal).ToArray();
+        var granted = new HashSet<string>(StringComparer.Ordinal);
+
+        try
+        {
+            foreach (var chunk in ChunkProjectIds(distinctIds, permission))
+            {
+                var chunkGranted = await QueryBatchAsync(identity, permission, chunk, cancellationToken);
+
+                foreach (var projectId in chunk)
+                {
+                    _permissionCache.Set(
+                        new Caching.PermissionCacheKey(identity, permission, projectId), chunkGranted.Contains(projectId), _permissionTtl);
+
+                    if (chunkGranted.Contains(projectId))
+                        granted.Add(projectId);
+                }
+            }
+        }
+        catch (PermissionQueryException)
+        {
+            // Fail closed: an inability to compute the filtered set is never "visible everywhere" —
+            // an upstream failure mid-fan-out prunes everything not yet confirmed, same direction as
+            // GetVisibleProjectSetAsync's own catch below.
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        return granted;
+    }
+
+    private async Task<VisibleProjectSet> QueryVisibleSetAsync(string identity, string permission, CancellationToken ct)
+    {
+        ValidateIdentity(identity);
+
+        var locator = $"permission:{permission}";
+        var url = BuildPermissionsUrl(identity, locator, multiProject: true);
+
+        using var response = await GetPermissionsAsync(url, ct);
+        var json = await response.Content.ReadAsStringAsync(ct);
+        var parsed = DeserializeAssignments(json);
+
+        var projectIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var entry in parsed.PermissionAssignment ?? [])
+        {
+            if (entry.Project?.Id is { } id)
+            {
+                projectIds.Add(id);
+            }
+            else
+            {
+                // A project-less entry is a global grant — visible everywhere, not just the
+                // projects named so far in this response.
+                return VisibleProjectSet.Global();
+            }
+        }
+
+        return VisibleProjectSet.Scoped(projectIds);
     }
 
     // ---- Locator construction (internal + static: unit-tested by PermissionLocatorTests without

@@ -28,7 +28,7 @@ public partial class BuildTools
 
         try
         {
-            var url = $"app/rest/builds/id:{buildId}/resulting-properties";
+            var url = $"app/rest/builds/id:{Uri.EscapeDataString(buildId)}/resulting-properties";
 
             var response = await client.HttpClient.GetAsync(url);
 

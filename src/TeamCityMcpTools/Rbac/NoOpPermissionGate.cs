@@ -22,15 +22,16 @@ public sealed class NoOpPermissionGate : IPermissionGate
         string toolName, string identity, CancellationToken cancellationToken = default) =>
         ValueTask.FromResult(GateDecision.Allow());
 
-    public ValueTask<IReadOnlyCollection<string>> GetVisibleProjectsAsync(
+    // Global(), not a Scoped empty set: Enabled=false means never filter, matching every other
+    // member here — a caller intersecting a result set against this must see everything through.
+    public ValueTask<VisibleProjectSet> GetVisibleProjectSetAsync(
         string toolName, string identity, CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult<IReadOnlyCollection<string>>([]);
+        ValueTask.FromResult(VisibleProjectSet.Global());
 
-    public ValueTask<IReadOnlyCollection<T>> FilterAllowedProjectsAsync<T>(
-        string toolName,
-        string identity,
-        IReadOnlyCollection<T> items,
-        Func<T, string?> projectIdSelector,
-        CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult(items);
+    // Every id passed in comes back granted, matching every other member here — but callers should
+    // never actually reach this: ToolGate.FilterVisibleProjectIdsAsync short-circuits on !Enabled
+    // before calling it, the same guard every other Enabled-gated helper in this file relies on.
+    public ValueTask<IReadOnlySet<string>> FilterProjectsAsync(
+        string toolName, string identity, IReadOnlyCollection<string> projectIds, CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult<IReadOnlySet<string>>(new HashSet<string>(projectIds, StringComparer.Ordinal));
 }

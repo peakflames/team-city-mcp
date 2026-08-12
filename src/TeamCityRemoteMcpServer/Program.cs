@@ -69,6 +69,7 @@ public class Program
         // Default no-op; AddRbac's enabled branch Replace()s this rather than Add/TryAdd, which
         // removes all registration-ordering fragility between the two calls.
         builder.Services.AddSingleton<IPermissionGate, NoOpPermissionGate>();
+        builder.Services.AddSingleton<IRbacToolCallContext, NoOpRbacToolCallContext>();
         builder.Services.AddSingleton(new TeamCityConfig(serverUrl, accessToken));
         builder.Services.AddHttpClient<ITeamCityClientFactory, TeamCityRemoteClientFactory>((sp, client) =>
         {

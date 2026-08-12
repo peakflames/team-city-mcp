@@ -32,7 +32,20 @@ public sealed class RbacOptions
 
     public int IdentityCacheTtlSeconds { get; set; } = 300;
 
+    /// <summary>buildType-&gt;project is NOT effectively immutable — live testing found build configs
+    /// do move between projects — hence a shorter TTL than <see cref="BuildProjectCacheTtlSeconds"/>.</summary>
+    public int BuildTypeProjectCacheTtlSeconds { get; set; } = 900;
+
+    /// <summary>build-&gt;project IS immutable once a build exists (a build never moves to a different
+    /// build type), so this can safely outlive <see cref="BuildTypeProjectCacheTtlSeconds"/>.</summary>
+    public int BuildProjectCacheTtlSeconds { get; set; } = 3600;
+
     /// <summary>Saturation cap for every RBAC cache, mirroring <c>McpAuth:MaxPendingAuthorizationCodes</c>'s
     /// role as a deliberate bound rather than an unbounded dictionary.</summary>
     public int MaxCacheEntries { get; set; } = 20000;
+
+    /// <summary>Deliberately separate from <see cref="MaxCacheEntries"/> — a permission-cache entry
+    /// is a single <c>bool</c>, but a visible-set entry is thousands of project id strings from a
+    /// response that can run ~500 KB. 20,000 of those would be gigabytes, not a bounded cache.</summary>
+    public int MaxVisibleSetCacheEntries { get; set; } = 2000;
 }

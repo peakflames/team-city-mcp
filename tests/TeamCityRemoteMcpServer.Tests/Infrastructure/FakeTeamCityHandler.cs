@@ -60,6 +60,31 @@ public sealed class FakeTeamCityHandler : HttpMessageHandler
         return this;
     }
 
+    /// <summary>Fakes <c>GET app/rest/buildTypes/id:{buildTypeId}...</c>, resolving to the given
+    /// project — the shape the G2 pivot needs. Matches on path only, so this same route also answers
+    /// a tool body's own full-detail fetch of the same buildType (with only <c>id</c>/<c>projectId</c>
+    /// populated; fine for RBAC-focused tests that don't assert on the rendered markdown body).</summary>
+    public FakeTeamCityHandler OnBuildType(string buildTypeId, string projectId)
+    {
+        var json = "{\"id\":\"" + buildTypeId + "\",\"projectId\":\"" + projectId + "\"}";
+        _routes.Add(new Route(
+            req => req.RequestUri!.AbsolutePath.EndsWith($"/app/rest/buildTypes/id:{buildTypeId}", StringComparison.Ordinal),
+            _ => JsonResponse(json)));
+        return this;
+    }
+
+    /// <summary>Fakes <c>GET app/rest/vcs-roots/id:{vcsRootId}...</c>, resolving to the given
+    /// project — the shape the vcsRoot pivot needs. Matches on path only, same caveat as
+    /// <see cref="OnBuildType"/>.</summary>
+    public FakeTeamCityHandler OnVcsRoot(string vcsRootId, string projectId)
+    {
+        var json = "{\"id\":\"" + vcsRootId + "\",\"project\":{\"id\":\"" + projectId + "\"}}";
+        _routes.Add(new Route(
+            req => req.RequestUri!.AbsolutePath.EndsWith($"/app/rest/vcs-roots/id:{vcsRootId}", StringComparison.Ordinal),
+            _ => JsonResponse(json)));
+        return this;
+    }
+
     /// <summary>
     /// Fakes <c>GET users/{locator}/permissions...</c>, speaking the same
     /// <c>fields=count,permissionAssignment(project(id))</c> shape live probe 11 requires for any
@@ -119,6 +144,21 @@ public sealed class FakeTeamCityHandler : HttpMessageHandler
                         "{\"count\":" + grantedIds.Length + ",\"permissionAssignment\":[" + assignments + "]}");
                 }
 
+                // A bare `permission:X` locator — no project:/global:true qualifier — is what
+                // GetVisibleProjectSetAsync sends: "every grant of this permission, whatever project
+                // (or none, for a global grant) it's on". Distinct from the single-project/global
+                // shape below, which asks a yes/no question about one specific scope.
+                if (wantsAssignments && !isGlobal && !singleMatch.Success)
+                {
+                    var matches = permission is { } queryPermission
+                        ? grants.Where(g => g.Permission == queryPermission).ToArray()
+                        : [];
+                    var assignments = string.Join(
+                        ",", matches.Select(g => g.ProjectId is null ? "{}" : "{\"project\":{\"id\":\"" + g.ProjectId + "\"}}"));
+                    return JsonResponse(
+                        "{\"count\":" + matches.Length + ",\"permissionAssignment\":[" + assignments + "]}");
+                }
+
                 var projectId = isGlobal ? null : (singleMatch.Success ? singleMatch.Groups[1].Value : null);
                 var granted = permission is { } singlePermission && grants.Contains((singlePermission, projectId));
 
@@ -133,6 +173,47 @@ public sealed class FakeTeamCityHandler : HttpMessageHandler
                 return JsonResponse(
                     "{\"count\":" + (granted ? 1 : 0) + ",\"permissionAssignment\":[" + (entry ?? string.Empty) + "]}");
             }));
+        return this;
+    }
+
+    /// <summary>Fakes any <c>GET</c> whose absolute path starts with <paramref name="pathPrefix"/>
+    /// with a fixed response body, regardless of query string — for list/search endpoints
+    /// (<c>/app/rest/projects</c>, <c>/app/rest/builds</c>, <c>/app/rest/testOccurrences</c>,
+    /// <c>/app/rest/mutes</c>, <c>/app/rest/audit</c>) where the S4 visible-set filtering tests care
+    /// about the response shape, not the exact locator/fields query TeamCity received.</summary>
+    public FakeTeamCityHandler OnGet(string pathPrefix, string responseJson)
+    {
+        _routes.Add(new Route(
+            req => req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath.StartsWith(pathPrefix, StringComparison.Ordinal),
+            _ => JsonResponse(responseJson)));
+        return this;
+    }
+
+    /// <summary>Fakes any <c>GET</c> whose absolute path is exactly <paramref name="path"/> and whose
+    /// query string contains <paramref name="queryFragment"/> — for the G5 fan-out case where the
+    /// exact same path (e.g. <c>builds/id:100</c>) is hit twice with different <c>fields=</c> values
+    /// for two different purposes (a build's own summary vs. its dependency fan-out), which
+    /// <see cref="OnGetExactPath"/> alone cannot distinguish.</summary>
+    public FakeTeamCityHandler OnGetExactPathWithQuery(string path, string queryFragment, string responseJson)
+    {
+        _routes.Add(new Route(
+            req => req.Method == HttpMethod.Get &&
+                   req.RequestUri!.AbsolutePath == path &&
+                   req.RequestUri!.Query.Contains(queryFragment, StringComparison.Ordinal),
+            _ => JsonResponse(responseJson)));
+        return this;
+    }
+
+    /// <summary>Fakes any <c>GET</c> whose absolute path is exactly <paramref name="path"/> — unlike
+    /// <see cref="OnGet"/>'s prefix match, this is exact, so distinct sibling paths under the same
+    /// buildType/build id (e.g. <c>.../buildTypes/id:X/snapshot-dependencies</c> vs.
+    /// <c>.../artifact-dependencies</c>) never collide. Used for G5 fan-out pruning tests, where a
+    /// single build/buildType id has several distinct dependency-shaped sub-resources to fake.</summary>
+    public FakeTeamCityHandler OnGetExactPath(string path, string responseJson)
+    {
+        _routes.Add(new Route(
+            req => req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath == path,
+            _ => JsonResponse(responseJson)));
         return this;
     }
 

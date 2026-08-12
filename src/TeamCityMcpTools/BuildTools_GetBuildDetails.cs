@@ -28,7 +28,7 @@ public partial class BuildTools
                          "triggered(user(name),date,type)," +
                          "revisions(revision(version,vcsBranchName,vcs-root-instance(id,vcs-root-id,name,vcsName)))," +
                          "problemOccurrences(count,problemOccurrence(type,details))";
-            var url = $"app/rest/builds/id:{buildId}?fields={Uri.EscapeDataString(fields)}";
+            var url = $"app/rest/builds/id:{Uri.EscapeDataString(buildId)}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
 

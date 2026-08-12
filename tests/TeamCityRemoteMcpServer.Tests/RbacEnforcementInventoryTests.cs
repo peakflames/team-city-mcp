@@ -1,10 +1,19 @@
 namespace TeamCityRemoteMcpServer.Tests;
 
 /// <summary>
-/// Pins <see cref="ToolResourcePermissionMap"/>'s per-tool <see cref="GateEnforcement"/> membership
-/// before any decision logic changes — the 3/5/23/1 split this session locks in, and the hard
-/// compile-time guarantee (a required positional <c>Enforcement</c> parameter) that no row is left
-/// at <see cref="GateEnforcement.Unspecified"/>.
+/// Pins <see cref="ToolResourcePermissionMap"/>'s per-tool <see cref="GateEnforcement"/> membership.
+/// Session 3 (the buildType/build/vcsRoot pivot resolver) moved G2 (4), G3 (10), and
+/// <c>teamcity_get_vcs_root</c> (1) out of <see cref="GateEnforcement.DeferredToLaterSession"/> into
+/// their own Required*Argument stages. Session 4 (visible-set filtering + the audit log's global
+/// check) moved G4's 5 cross-project tools to <see cref="GateEnforcement.VisibleSetFiltered"/> and
+/// the audit log to <see cref="GateEnforcement.RequiredGlobalPermission"/>. Session 5 (fan-out
+/// pruning) moved G5's 2 tools (<c>teamcity_get_build_dependency_tree</c>,
+/// <c>teamcity_get_build_type_dependency_graph</c>) into their Required*Argument stages too — their
+/// root resource was already gated via the S3 pivot; what changed is fan-out nodes beyond that root
+/// now get pruned in the tool body via <c>CrossProjectPermission</c>. 3/5/4/10/1/5/1/0/1 now: zero
+/// rows left at <see cref="GateEnforcement.DeferredToLaterSession"/>. Also enforces the hard
+/// compile-time guarantee (a required positional <c>Enforcement</c> parameter) that no row is left at
+/// <see cref="GateEnforcement.Unspecified"/>.
 /// </summary>
 public class RbacEnforcementInventoryTests
 {
@@ -24,13 +33,17 @@ public class RbacEnforcementInventoryTests
         TeamCityToolNames.GetQueuedBuilds,
     ];
 
-    private static readonly string[] DeferredToLaterSessionTools =
+    private static readonly string[] RequiredBuildTypeArgumentTools =
     [
-        TeamCityToolNames.GetVcsRoot,
         TeamCityToolNames.GetBuildType,
         TeamCityToolNames.GetBuildTypeParameters,
         TeamCityToolNames.GetBuildTypeFeatures,
         TeamCityToolNames.ListBuilds,
+        TeamCityToolNames.GetBuildTypeDependencyGraph,
+    ];
+
+    private static readonly string[] RequiredBuildArgumentTools =
+    [
         TeamCityToolNames.GetBuild,
         TeamCityToolNames.GetBuildStatus,
         TeamCityToolNames.GetBuildParameters,
@@ -41,15 +54,23 @@ public class RbacEnforcementInventoryTests
         TeamCityToolNames.SearchBuildLog,
         TeamCityToolNames.ListBuildArtifacts,
         TeamCityToolNames.GetBuildArtifactContent,
+        TeamCityToolNames.GetBuildDependencyTree,
+    ];
+
+    private static readonly string[] RequiredVcsRootArgumentTools = [TeamCityToolNames.GetVcsRoot];
+
+    private static readonly string[] VisibleSetFilteredTools =
+    [
         TeamCityToolNames.ListProjects,
         TeamCityToolNames.GetProjectHierarchy,
         TeamCityToolNames.SearchBuilds,
         TeamCityToolNames.GetTestHistory,
         TeamCityToolNames.ListMutes,
-        TeamCityToolNames.GetAuditLog,
-        TeamCityToolNames.GetBuildDependencyTree,
-        TeamCityToolNames.GetBuildTypeDependencyGraph,
     ];
+
+    private static readonly string[] RequiredGlobalPermissionTools = [TeamCityToolNames.GetAuditLog];
+
+    private static readonly string[] DeferredToLaterSessionTools = [];
 
     private static readonly string[] NeverGatedTools = [TeamCityToolNames.ServerInfo];
 
@@ -58,11 +79,11 @@ public class RbacEnforcementInventoryTests
         {
             (ResourceKind.Project, GateEnforcement.RequiredProjectArgument),
             (ResourceKind.Project, GateEnforcement.OptionalProjectArgument),
-            (ResourceKind.VcsRoot, GateEnforcement.DeferredToLaterSession),
-            (ResourceKind.BuildType, GateEnforcement.DeferredToLaterSession),
-            (ResourceKind.Build, GateEnforcement.DeferredToLaterSession),
-            (ResourceKind.CrossProject, GateEnforcement.DeferredToLaterSession),
-            (ResourceKind.Global, GateEnforcement.DeferredToLaterSession),
+            (ResourceKind.VcsRoot, GateEnforcement.RequiredVcsRootArgument),
+            (ResourceKind.BuildType, GateEnforcement.RequiredBuildTypeArgument),
+            (ResourceKind.Build, GateEnforcement.RequiredBuildArgument),
+            (ResourceKind.CrossProject, GateEnforcement.VisibleSetFiltered),
+            (ResourceKind.Global, GateEnforcement.RequiredGlobalPermission),
             (ResourceKind.Ungated, GateEnforcement.NeverGated),
         };
 
@@ -71,12 +92,22 @@ public class RbacEnforcementInventoryTests
     {
         AssertStage(RequiredProjectArgumentTools, GateEnforcement.RequiredProjectArgument);
         AssertStage(OptionalProjectArgumentTools, GateEnforcement.OptionalProjectArgument);
+        AssertStage(RequiredBuildTypeArgumentTools, GateEnforcement.RequiredBuildTypeArgument);
+        AssertStage(RequiredBuildArgumentTools, GateEnforcement.RequiredBuildArgument);
+        AssertStage(RequiredVcsRootArgumentTools, GateEnforcement.RequiredVcsRootArgument);
+        AssertStage(VisibleSetFilteredTools, GateEnforcement.VisibleSetFiltered);
+        AssertStage(RequiredGlobalPermissionTools, GateEnforcement.RequiredGlobalPermission);
         AssertStage(DeferredToLaterSessionTools, GateEnforcement.DeferredToLaterSession);
         AssertStage(NeverGatedTools, GateEnforcement.NeverGated);
 
         Assert.Equal(3, RequiredProjectArgumentTools.Length);
         Assert.Equal(5, OptionalProjectArgumentTools.Length);
-        Assert.Equal(23, DeferredToLaterSessionTools.Length);
+        Assert.Equal(5, RequiredBuildTypeArgumentTools.Length);
+        Assert.Equal(11, RequiredBuildArgumentTools.Length);
+        Assert.Single(RequiredVcsRootArgumentTools);
+        Assert.Equal(5, VisibleSetFilteredTools.Length);
+        Assert.Single(RequiredGlobalPermissionTools);
+        Assert.Empty(DeferredToLaterSessionTools);
         Assert.Single(NeverGatedTools);
         Assert.Equal(32, ToolResourcePermissionMap.Entries.Count);
     }

@@ -38,6 +38,12 @@ public class DependencyBuildTypeRef
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 
+    /// <summary>Only populated when a consumer's <c>fields=</c> string requests <c>projectId</c> on
+    /// the buildType — RBAC fan-out pruning (G5) requests it explicitly, since
+    /// <see cref="ProjectName"/> is a display name and must never key a visibility check.</summary>
+    [JsonPropertyName("projectId")]
+    public string? ProjectId { get; set; }
+
     [JsonPropertyName("projectName")]
     public string? ProjectName { get; set; }
 }

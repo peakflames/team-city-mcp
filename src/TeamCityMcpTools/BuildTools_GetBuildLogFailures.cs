@@ -36,6 +36,9 @@ public partial class BuildTools
             !string.Equals(detailsMode, "none", StringComparison.OrdinalIgnoreCase))
             return $"ERROR: Unknown detailsMode '{detailsMode}'. Use 'compact', 'full', or 'none'.";
 
+        if (!TeamCityLocator.IsNumericId(buildId))
+            return $"ERROR: Invalid buildId '{buildId}' — must be numeric.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();

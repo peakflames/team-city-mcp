@@ -44,8 +44,17 @@ public sealed class RbacOptionsValidator : IValidateOptions<RbacOptions>
         if (options.IdentityCacheTtlSeconds < 1 || options.IdentityCacheTtlSeconds > 86400)
             failures.Add("Rbac:IdentityCacheTtlSeconds must be between 1 and 86400.");
 
+        if (options.BuildTypeProjectCacheTtlSeconds < 1 || options.BuildTypeProjectCacheTtlSeconds > 86400)
+            failures.Add("Rbac:BuildTypeProjectCacheTtlSeconds must be between 1 and 86400.");
+
+        if (options.BuildProjectCacheTtlSeconds < 1 || options.BuildProjectCacheTtlSeconds > 86400)
+            failures.Add("Rbac:BuildProjectCacheTtlSeconds must be between 1 and 86400.");
+
         if (options.MaxCacheEntries < 1 || options.MaxCacheEntries > 10_000_000)
             failures.Add("Rbac:MaxCacheEntries must be between 1 and 10000000.");
+
+        if (options.MaxVisibleSetCacheEntries < 1 || options.MaxVisibleSetCacheEntries > 10_000_000)
+            failures.Add("Rbac:MaxVisibleSetCacheEntries must be between 1 and 10000000.");
 
         return failures.Count == 0
             ? ValidateOptionsResult.Success

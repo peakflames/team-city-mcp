@@ -24,4 +24,32 @@ public enum GateEnforcement
 
     /// <summary>Never gated at all. <c>teamcity_server_info</c> only.</summary>
     NeverGated,
+
+    /// <summary>buildTypeId is a required argument that pivots to a project via
+    /// <c>IResourceProjectResolver.ResolveProjectForBuildTypeAsync</c> — absent, null, non-string,
+    /// blank, or malformed (not <c>^[A-Za-z0-9_.-]+$</c>) all deny; a pivot failure denies too.</summary>
+    RequiredBuildTypeArgument,
+
+    /// <summary>buildId is a required argument that pivots to a project via
+    /// <c>IResourceProjectResolver.ResolveProjectForBuildAsync</c> — absent, null, non-string,
+    /// blank, or malformed (not <c>^[0-9]+$</c>) all deny; a pivot failure denies too.</summary>
+    RequiredBuildArgument,
+
+    /// <summary>vcsRootId is a required argument that pivots to a project via
+    /// <c>IResourceProjectResolver.ResolveProjectForVcsRootAsync</c> — absent, null, non-string,
+    /// blank, or malformed (not <c>^[A-Za-z0-9_.-]+$</c>) all deny; a pivot failure denies too.</summary>
+    RequiredVcsRootArgument,
+
+    /// <summary>No single resource named by the caller at all — the gate itself always allows
+    /// (subject to the uniform identity check), and the tool body is responsible for calling
+    /// <c>IPermissionGate.GetVisibleProjectSetAsync</c> and intersecting its own result set against
+    /// it before rendering. Unlike <see cref="DeferredToLaterSession"/>, this is real enforcement:
+    /// the filtering just doesn't happen at the gate, since there is nothing here for the gate to
+    /// check against.</summary>
+    VisibleSetFiltered,
+
+    /// <summary>Gated on a single server-wide permission via <c>IPermissionGate.CheckGlobalAsync</c>,
+    /// never on any project — for a tool whose result can surface data spanning every project
+    /// regardless of a scoping argument (e.g. the audit log's <c>affectedProjectId</c>).</summary>
+    RequiredGlobalPermission,
 }

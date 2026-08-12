@@ -75,6 +75,49 @@ public class ToolMapCompletenessTests : IClassFixture<TestServerFactory>
         }
     }
 
+    /// <summary>
+    /// <see cref="RbacGateDecider.TryExtractResource"/> looks up a tool's argument by exact-case
+    /// ordinal name derived purely from <see cref="ResourceKind"/> — it never inspects the tool
+    /// method itself. A single argument-name mismatch (a typo, a rename on one side only) would
+    /// silently deny every call to that tool rather than fail loud. This walks every mapped tool
+    /// whose kind names a single required argument and asserts the method actually declares a
+    /// parameter with that exact name.
+    /// </summary>
+    [Fact]
+    public void EveryResourceScopedTool_DeclaresAParameterMatchingItsResourceKind()
+    {
+        var methodsByName = typeof(BuildTools)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Concat(typeof(ProjectTools).GetMethods(BindingFlags.Public | BindingFlags.Instance))
+            .Select(m => (Method: m, Attribute: m.GetCustomAttribute<McpServerToolAttribute>()))
+            .Where(x => x.Attribute?.Name is not null)
+            .ToDictionary(x => x.Attribute!.Name!, x => x.Method, StringComparer.Ordinal);
+
+        foreach (var (toolName, spec) in ToolResourcePermissionMap.Entries)
+        {
+            var expectedArgumentName = spec.Kind switch
+            {
+                ResourceKind.Project => "projectId",
+                ResourceKind.BuildType => "buildTypeId",
+                ResourceKind.Build => "buildId",
+                ResourceKind.VcsRoot => "vcsRootId",
+                _ => null,
+            };
+
+            if (expectedArgumentName is null)
+                continue;
+
+            Assert.True(methodsByName.TryGetValue(toolName, out var method), $"{toolName} has no matching [McpServerTool] method.");
+
+            var parameterNames = method!.GetParameters().Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
+            Assert.True(
+                parameterNames.Contains(expectedArgumentName),
+                $"{toolName} is mapped as ResourceKind.{spec.Kind} (expects a '{expectedArgumentName}' argument) " +
+                $"but its method declares no such parameter — RbacGateDecider.TryExtractResource would silently " +
+                $"treat every call to this tool as missing the resource argument.");
+        }
+    }
+
     private static HashSet<string> GetDeclaredToolNames()
     {
         var methods = typeof(BuildTools)

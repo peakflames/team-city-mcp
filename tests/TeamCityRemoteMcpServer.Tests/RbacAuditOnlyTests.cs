@@ -68,8 +68,10 @@ public class RbacAuditOnlyTests : IDisposable
         // teamcity_server_info is NeverGated, so neither identity resolution nor the gate decision
         // ever surfaces this broken registration (both catch broadly and fail closed on their own
         // use of it) — the only place it can crash is the tool body's own un-caught preamble,
-        // proving the audit record really is written before `next(...)` runs, not just after it
-        // succeeds.
+        // proving the audit record is written from a `finally` that survives the tool body throwing,
+        // not only on its successful return (the record is written after `next(...)` now, not
+        // before it, so a G4 tool body's IRbacToolCallContext.ReportFilteredOut call can land on the
+        // context before the filter reads it back — see RbacIdentityFilter).
         _factory.WithPostAuthServices(services => services.Replace(
             ServiceDescriptor.Scoped<ITeamCityClientFactory>(_ => throw new InvalidOperationException("tool body's client factory exploded"))));
 

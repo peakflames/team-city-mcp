@@ -25,6 +25,7 @@ public static class RbacIdentityFilter
 
             var options = services.GetRequiredService<IOptions<RbacOptions>>().Value;
             var gate = services.GetRequiredService<IPermissionGate>();
+            var resourceResolver = services.GetRequiredService<IResourceProjectResolver>();
             var identityResolver = services.GetRequiredService<IIdentityResolver>();
             var accessor = services.GetRequiredService<IRbacCallContextAccessor>();
             var auditSink = services.GetRequiredService<IMcpAccessAuditSink>();
@@ -55,32 +56,41 @@ public static class RbacIdentityFilter
             try
             {
                 var decision = await RbacGateDecider.DecideAsync(
-                    gate, toolName, teamCityUserId, argumentState, resource, cancellationToken);
+                    gate, resourceResolver, toolName, teamCityUserId, argumentState, resource, cancellationToken);
 
                 // Elapsed here is gate latency only — the number the RBAC budget is actually about —
                 // not the downstream tool body's own latency.
                 var elapsedMs = stopwatch.ElapsedMilliseconds;
                 var blocked = !decision.Allowed && !options.AuditOnly;
 
-                // Recorded before `next(...)` runs: if the tool body throws, the audit record for
-                // this call must still exist.
-                auditSink.Record(new AccessAuditRecord(
-                    DateTimeOffset.UtcNow,
-                    request.User?.FindFirst("sub")?.Value,
-                    request.User?.FindFirst("client_id")?.Value,
-                    request.User?.FindFirst("jti")?.Value,
-                    identityClaimValue,
-                    teamCityUserId,
-                    toolName,
-                    resource,
-                    spec.Permission,
-                    decision.Allowed ? AccessDecision.Allow : AccessDecision.Deny,
-                    decision.Reason,
-                    blocked,
-                    null,
-                    elapsedMs));
-
-                return blocked ? DeniedResult() : await next(request, cancellationToken);
+                try
+                {
+                    return blocked ? DeniedResult() : await next(request, cancellationToken);
+                }
+                finally
+                {
+                    // Recorded in this inner finally, not before next(...): a G4 tool body reports
+                    // FilteredOutCount mid-call via IRbacToolCallContext, writing onto the same
+                    // RbacCallContext instance accessor.Current already holds — reading it back here
+                    // is the only place that value is available. Still runs on a throwing tool body
+                    // (proven by RbacAuditOnlyTests.ThrowingToolBody_StillEmitsItsAuditRecord), so the
+                    // audit record for this call always exists regardless of how next(...) exits.
+                    auditSink.Record(new AccessAuditRecord(
+                        DateTimeOffset.UtcNow,
+                        request.User?.FindFirst("sub")?.Value,
+                        request.User?.FindFirst("client_id")?.Value,
+                        request.User?.FindFirst("jti")?.Value,
+                        identityClaimValue,
+                        teamCityUserId,
+                        toolName,
+                        resource,
+                        spec.Permission,
+                        decision.Allowed ? AccessDecision.Allow : AccessDecision.Deny,
+                        decision.Reason,
+                        blocked,
+                        accessor.Current?.FilteredOutCount,
+                        elapsedMs));
+                }
             }
             finally
             {

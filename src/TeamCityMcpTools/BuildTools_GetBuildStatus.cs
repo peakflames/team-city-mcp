@@ -21,7 +21,7 @@ public partial class BuildTools
         try
         {
             var fields = "id,number,status,state,statusText,percentageComplete,branchName,webUrl";
-            var url = $"app/rest/builds/id:{buildId}?fields={Uri.EscapeDataString(fields)}";
+            var url = $"app/rest/builds/id:{Uri.EscapeDataString(buildId)}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
 

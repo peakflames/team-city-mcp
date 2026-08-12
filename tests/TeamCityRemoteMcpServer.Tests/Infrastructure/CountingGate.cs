@@ -44,15 +44,21 @@ public sealed class CountingGate : IPermissionGate
         return ValueTask.FromResult(GateDecision.Allow());
     }
 
-    public ValueTask<IReadOnlyCollection<string>> GetVisibleProjectsAsync(
-        string toolName, string identity, CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult<IReadOnlyCollection<string>>([]);
+    public int VisibleSetCallCount { get; private set; }
 
-    public ValueTask<IReadOnlyCollection<T>> FilterAllowedProjectsAsync<T>(
-        string toolName,
-        string identity,
-        IReadOnlyCollection<T> items,
-        Func<T, string?> projectIdSelector,
-        CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult(items);
+    public ValueTask<VisibleProjectSet> GetVisibleProjectSetAsync(
+        string toolName, string identity, CancellationToken cancellationToken = default)
+    {
+        VisibleSetCallCount++;
+        return ValueTask.FromResult(VisibleProjectSet.Scoped(new HashSet<string>(StringComparer.Ordinal)));
+    }
+
+    public int FilterProjectsCallCount { get; private set; }
+
+    public ValueTask<IReadOnlySet<string>> FilterProjectsAsync(
+        string toolName, string identity, IReadOnlyCollection<string> projectIds, CancellationToken cancellationToken = default)
+    {
+        FilterProjectsCallCount++;
+        return ValueTask.FromResult<IReadOnlySet<string>>(new HashSet<string>(projectIds, StringComparer.Ordinal));
+    }
 }

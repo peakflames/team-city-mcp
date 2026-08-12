@@ -12,6 +12,12 @@ namespace TeamCityRemoteMcpServer.Rbac;
 /// </summary>
 internal static class RbacGateDecider
 {
+    // Independent copies of TeamCityPermissionGate.SafeProjectId / TeamCityLocator's charsets —
+    // deliberately duplicated rather than shared, so the gate's own format check never depends on a
+    // tool body's escaping helper staying in sync with it.
+    private static readonly Regex SafeIdPattern = new("^[A-Za-z0-9_.-]+$", RegexOptions.Compiled);
+    private static readonly Regex NumericIdPattern = new("^[0-9]+$", RegexOptions.Compiled);
+
     internal enum ArgumentState
     {
         Absent,
@@ -26,6 +32,11 @@ internal static class RbacGateDecider
     /// deny, never as an unchecked allow. Never trims or case-folds <paramref name="resource"/>: the
     /// gate must check the byte-identical string the tool body will send, or the check and the fetch
     /// are silently about different resources.
+    ///
+    /// Also applies per-kind format validation: a <c>buildId</c> that isn't <c>^[0-9]+$</c>, or a
+    /// <c>buildTypeId</c>/<c>vcsRootId</c> that isn't <c>^[A-Za-z0-9_.-]+$</c>, is <see cref="ArgumentState.Malformed"/>
+    /// — this is what guarantees the pivot resolver and the tool body's own fetch address the same
+    /// resource, since both now require the same shape before either ever runs.
     /// </summary>
     internal static ArgumentState TryExtractResource(
         ResourceKind kind, IDictionary<string, JsonElement>? arguments, out string? resource)
@@ -57,6 +68,15 @@ internal static class RbacGateDecider
         if (string.IsNullOrWhiteSpace(raw))
             return ArgumentState.Malformed;
 
+        var formatValid = kind switch
+        {
+            ResourceKind.Build => NumericIdPattern.IsMatch(raw),
+            ResourceKind.BuildType or ResourceKind.VcsRoot => SafeIdPattern.IsMatch(raw),
+            _ => true,
+        };
+        if (!formatValid)
+            return ArgumentState.Malformed;
+
         resource = raw;
         return ArgumentState.Present;
     }
@@ -82,6 +102,7 @@ internal static class RbacGateDecider
     /// </summary>
     internal static async ValueTask<GateDecision> DecideAsync(
         IPermissionGate gate,
+        IResourceProjectResolver resolver,
         string toolName,
         string? identity,
         ArgumentState argumentState,
@@ -97,13 +118,21 @@ internal static class RbacGateDecider
         if (spec.Enforcement == GateEnforcement.NeverGated)
             return GateDecision.Allow("never_gated");
 
-        // One uniform rule for all 31 gated tools, deliberately checked before the Deferred branch:
+        // One uniform rule for all gated tools, deliberately checked before the Deferred branch:
         // an unresolvable caller denies even on tools this session doesn't yet enforce.
         if (identity is null)
             return GateDecision.Deny("identity_unresolved");
 
         if (spec.Enforcement == GateEnforcement.DeferredToLaterSession)
             return GateDecision.Allow(DeferredReason(spec.Kind));
+
+        // No resource named by the caller for the gate to check — the tool body itself intersects
+        // its result set against IPermissionGate.GetVisibleProjectSetAsync after fetching.
+        if (spec.Enforcement == GateEnforcement.VisibleSetFiltered)
+            return GateDecision.Allow("visible_set_filtering_applied");
+
+        if (spec.Enforcement == GateEnforcement.RequiredGlobalPermission)
+            return await gate.CheckGlobalAsync(toolName, identity, cancellationToken);
 
         if (spec.Enforcement is GateEnforcement.RequiredProjectArgument or GateEnforcement.OptionalProjectArgument)
         {
@@ -117,6 +146,41 @@ internal static class RbacGateDecider
                     await gate.CheckProjectAsync(toolName, identity, resource!, cancellationToken),
                 _ => GateDecision.Deny("enforcement_unspecified"),
             };
+        }
+
+        if (spec.Enforcement is GateEnforcement.RequiredBuildTypeArgument
+            or GateEnforcement.RequiredBuildArgument
+            or GateEnforcement.RequiredVcsRootArgument)
+        {
+            if (argumentState == ArgumentState.Malformed)
+                return GateDecision.Deny("resource_argument_malformed");
+            if (argumentState == ArgumentState.Absent)
+                return GateDecision.Deny("resource_argument_missing");
+            if (argumentState != ArgumentState.Present)
+                return GateDecision.Deny("enforcement_unspecified");
+
+            string projectId;
+            try
+            {
+                projectId = spec.Enforcement switch
+                {
+                    GateEnforcement.RequiredBuildTypeArgument =>
+                        await resolver.ResolveProjectForBuildTypeAsync(resource!, cancellationToken),
+                    GateEnforcement.RequiredBuildArgument =>
+                        await resolver.ResolveProjectForBuildAsync(resource!, cancellationToken),
+                    GateEnforcement.RequiredVcsRootArgument =>
+                        await resolver.ResolveProjectForVcsRootAsync(resource!, cancellationToken),
+                    _ => throw new InvalidOperationException("Unreachable enforcement value in pivot branch."),
+                };
+            }
+            catch (ResourcePivotException ex)
+            {
+                // A pivot 404 and a pivot-resolves-to-a-forbidden-project must be indistinguishable —
+                // both flow through GateDecision.Deny to the same ToolGate.DeniedMessage.
+                return GateDecision.Deny(ex.Reason);
+            }
+
+            return await gate.CheckProjectAsync(toolName, identity, projectId, cancellationToken);
         }
 
         return GateDecision.Deny("enforcement_unspecified");

@@ -17,6 +17,9 @@ public partial class ProjectTools
         [Description("Maximum number of matching VCS roots to display. Defaults to 100.")]
         int count = 100)
     {
+        if (!string.IsNullOrWhiteSpace(projectId) && !TeamCityLocator.IsSafeId(projectId))
+            return $"ERROR: Invalid projectId '{projectId}'.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();

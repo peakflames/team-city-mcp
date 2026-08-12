@@ -22,15 +22,11 @@ public sealed class ThrowingGate : IPermissionGate
         string toolName, string identity, CancellationToken cancellationToken = default) =>
         throw new InvalidOperationException("ThrowingGate.CheckGlobalAsync should never be called.");
 
-    public ValueTask<IReadOnlyCollection<string>> GetVisibleProjectsAsync(
+    public ValueTask<VisibleProjectSet> GetVisibleProjectSetAsync(
         string toolName, string identity, CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("ThrowingGate.GetVisibleProjectsAsync should never be called.");
+        throw new InvalidOperationException("ThrowingGate.GetVisibleProjectSetAsync should never be called.");
 
-    public ValueTask<IReadOnlyCollection<T>> FilterAllowedProjectsAsync<T>(
-        string toolName,
-        string identity,
-        IReadOnlyCollection<T> items,
-        Func<T, string?> projectIdSelector,
-        CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("ThrowingGate.FilterAllowedProjectsAsync should never be called.");
+    public ValueTask<IReadOnlySet<string>> FilterProjectsAsync(
+        string toolName, string identity, IReadOnlyCollection<string> projectIds, CancellationToken cancellationToken = default) =>
+        throw new InvalidOperationException("ThrowingGate.FilterProjectsAsync should never be called.");
 }

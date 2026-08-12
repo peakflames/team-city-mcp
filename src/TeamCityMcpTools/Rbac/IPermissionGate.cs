@@ -25,18 +25,22 @@ public interface IPermissionGate
     ValueTask<GateDecision> CheckGlobalAsync(
         string toolName, string identity, CancellationToken cancellationToken = default);
 
-    /// <summary>Full set of project ids the identity holds <c>view_project</c> (or the given
-    /// permission) on. Used by G4 tools to intersect against an unfiltered result set.</summary>
-    ValueTask<IReadOnlyCollection<string>> GetVisibleProjectsAsync(
+    /// <summary>The set of project ids the identity holds <paramref name="toolName"/>'s mapped
+    /// permission on, as a <see cref="VisibleProjectSet"/> — used by G4 tools to intersect an
+    /// unfiltered result set against the caller's actual visibility. Unlike a bare
+    /// <c>IReadOnlyCollection&lt;string&gt;</c>, this can represent a global grant without
+    /// materializing every project id that exists.</summary>
+    ValueTask<VisibleProjectSet> GetVisibleProjectSetAsync(
         string toolName, string identity, CancellationToken cancellationToken = default);
 
-    /// <summary>Convenience wrapper over <see cref="GetVisibleProjectsAsync"/> for G4 tools:
-    /// returns only the items whose project id (via <paramref name="projectIdSelector"/>) is in the
-    /// identity's visible set.</summary>
-    ValueTask<IReadOnlyCollection<T>> FilterAllowedProjectsAsync<T>(
-        string toolName,
-        string identity,
-        IReadOnlyCollection<T> items,
-        Func<T, string?> projectIdSelector,
-        CancellationToken cancellationToken = default);
+    /// <summary>The subset of <paramref name="projectIds"/> the identity holds <paramref name="toolName"/>'s
+    /// mapped permission on (<see cref="ToolGateSpec.CrossProjectPermission"/> when set, since a G5
+    /// fan-out node discovered outside the tool's own named resource is checked against that
+    /// permission, not necessarily the root resource's). Distinct from <see cref="CheckProjectsAsync"/>,
+    /// which is deliberately all-or-nothing — this returns exactly the granted ids so a caller can
+    /// prune the rest. Given a known, already-bounded id set (a fan-out's discovered nodes), never
+    /// materializes "every project that exists" the way a <see cref="VisibleProjectSet"/> global grant
+    /// would.</summary>
+    ValueTask<IReadOnlySet<string>> FilterProjectsAsync(
+        string toolName, string identity, IReadOnlyCollection<string> projectIds, CancellationToken cancellationToken = default);
 }

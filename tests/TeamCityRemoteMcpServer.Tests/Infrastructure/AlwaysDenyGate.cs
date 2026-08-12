@@ -20,15 +20,11 @@ public sealed class AlwaysDenyGate : IPermissionGate
         string toolName, string identity, CancellationToken cancellationToken = default) =>
         ValueTask.FromResult(GateDecision.Deny());
 
-    public ValueTask<IReadOnlyCollection<string>> GetVisibleProjectsAsync(
+    public ValueTask<VisibleProjectSet> GetVisibleProjectSetAsync(
         string toolName, string identity, CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult<IReadOnlyCollection<string>>([]);
+        ValueTask.FromResult(VisibleProjectSet.Scoped(new HashSet<string>(StringComparer.Ordinal)));
 
-    public ValueTask<IReadOnlyCollection<T>> FilterAllowedProjectsAsync<T>(
-        string toolName,
-        string identity,
-        IReadOnlyCollection<T> items,
-        Func<T, string?> projectIdSelector,
-        CancellationToken cancellationToken = default) =>
-        ValueTask.FromResult<IReadOnlyCollection<T>>([]);
+    public ValueTask<IReadOnlySet<string>> FilterProjectsAsync(
+        string toolName, string identity, IReadOnlyCollection<string> projectIds, CancellationToken cancellationToken = default) =>
+        ValueTask.FromResult<IReadOnlySet<string>>(new HashSet<string>(StringComparer.Ordinal));
 }

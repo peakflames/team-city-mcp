@@ -38,12 +38,22 @@ public static class RbacServiceCollectionExtensions
         services.AddSingleton<TeamCityPermissionGate>();
         services.Replace(ServiceDescriptor.Singleton<IPermissionGate>(sp => sp.GetRequiredService<TeamCityPermissionGate>()));
 
+        services.AddSingleton<TeamCityResourceProjectResolver>();
+        services.AddSingleton<IResourceProjectResolver>(sp => sp.GetRequiredService<TeamCityResourceProjectResolver>());
+
         services.AddSingleton<IRbacCallContextAccessor, RbacCallContextAccessor>();
         services.AddSingleton<IMcpAccessAuditSink, SerilogMcpAccessAuditSink>();
 
-        // Both RBAC caches register under the same non-generic seam so one janitor sweeps both.
+        // Replace(), not Add/TryAdd — same rationale as IPermissionGate above: removes ordering
+        // fragility against the default NoOpRbacToolCallContext registration in Program.cs.
+        services.Replace(ServiceDescriptor.Singleton<IRbacToolCallContext, RbacToolCallContextAdapter>());
+
+        // All RBAC caches register under the same non-generic seam so one janitor sweeps all of them.
         services.AddSingleton<Caching.IEvictableCache>(sp => sp.GetRequiredService<TeamCityPermissionGate>().Cache);
+        services.AddSingleton<Caching.IEvictableCache>(sp => sp.GetRequiredService<TeamCityPermissionGate>().VisibleSetCache);
         services.AddSingleton<Caching.IEvictableCache>(sp => sp.GetRequiredService<Caching.CachingIdentityResolver>().Cache);
+        services.AddSingleton<Caching.IEvictableCache>(sp => sp.GetRequiredService<TeamCityResourceProjectResolver>().BuildTypeProjectCache);
+        services.AddSingleton<Caching.IEvictableCache>(sp => sp.GetRequiredService<TeamCityResourceProjectResolver>().BuildProjectCache);
         services.AddHostedService<Caching.RbacCacheJanitor>();
 
         services.Configure<McpServerOptions>(o => o.Filters.Request.CallToolFilters.Add(RbacIdentityFilter.Create));

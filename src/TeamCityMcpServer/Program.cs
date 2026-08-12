@@ -65,6 +65,7 @@ public class Program
             // Permanently no-op — the stdio host has no HTTP identity to resolve, so there is
             // nothing for a permission gate to check.
             builder.Services.AddSingleton<IPermissionGate, NoOpPermissionGate>();
+            builder.Services.AddSingleton<IRbacToolCallContext, NoOpRbacToolCallContext>();
             builder.Services.AddSingleton(new TeamCityConfig(serverUrl!, accessToken!));
             builder.Services.AddHttpClient<ITeamCityClientFactory, TeamCityClientFactory>((sp, client) =>
             {

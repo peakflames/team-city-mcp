@@ -10,6 +10,11 @@ public class RbacGateDeciderTests
     private const string OptionalTool = TeamCityToolNames.ListBuildTypes;
     private const string Identity = "42";
 
+    /// <summary>None of this file's cases exercise a BuildType/Build/VcsRoot resource kind, so the
+    /// resolver is never reached — every method throws to make that assumption loud if it ever stops
+    /// holding.</summary>
+    private static readonly IResourceProjectResolver NeverCalledResolver = new NeverCalledResourceProjectResolver();
+
     [Theory]
     [InlineData("""{"projectId":123}""")]
     [InlineData("""{"projectId":true}""")]
@@ -23,7 +28,7 @@ public class RbacGateDeciderTests
         var arguments = ParseArguments(argumentsJson);
 
         var state = RbacGateDecider.TryExtractResource(ResourceKind.Project, arguments, out var resource);
-        var decision = await RbacGateDecider.DecideAsync(gate, RequiredTool, Identity, state, resource, CancellationToken.None);
+        var decision = await RbacGateDecider.DecideAsync(gate, NeverCalledResolver, RequiredTool, Identity, state, resource, CancellationToken.None);
 
         Assert.False(decision.Allowed);
         Assert.Equal("resource_argument_malformed", decision.Reason);
@@ -37,7 +42,7 @@ public class RbacGateDeciderTests
         var arguments = ParseArguments("""{"ProjectId":"P"}""");
 
         var state = RbacGateDecider.TryExtractResource(ResourceKind.Project, arguments, out var resource);
-        var decision = await RbacGateDecider.DecideAsync(gate, RequiredTool, Identity, state, resource, CancellationToken.None);
+        var decision = await RbacGateDecider.DecideAsync(gate, NeverCalledResolver, RequiredTool, Identity, state, resource, CancellationToken.None);
 
         Assert.False(decision.Allowed);
         Assert.Equal("resource_argument_missing", decision.Reason);
@@ -51,7 +56,7 @@ public class RbacGateDeciderTests
         var arguments = ParseArguments("""{"projectId":" P "}""");
 
         var state = RbacGateDecider.TryExtractResource(ResourceKind.Project, arguments, out var resource);
-        var decision = await RbacGateDecider.DecideAsync(gate, RequiredTool, Identity, state, resource, CancellationToken.None);
+        var decision = await RbacGateDecider.DecideAsync(gate, NeverCalledResolver, RequiredTool, Identity, state, resource, CancellationToken.None);
 
         Assert.True(decision.Allowed);
         Assert.Equal(1, gate.ProjectCallCount);
@@ -65,7 +70,7 @@ public class RbacGateDeciderTests
         var arguments = ParseArguments("{}");
 
         var state = RbacGateDecider.TryExtractResource(ResourceKind.Project, arguments, out var resource);
-        var decision = await RbacGateDecider.DecideAsync(gate, OptionalTool, Identity, state, resource, CancellationToken.None);
+        var decision = await RbacGateDecider.DecideAsync(gate, NeverCalledResolver, OptionalTool, Identity, state, resource, CancellationToken.None);
 
         Assert.True(decision.Allowed);
         Assert.Equal("unscoped_pending_visible_set", decision.Reason);
@@ -79,7 +84,7 @@ public class RbacGateDeciderTests
         var arguments = ParseArguments("""{"projectId":123}""");
 
         var state = RbacGateDecider.TryExtractResource(ResourceKind.Project, arguments, out var resource);
-        var decision = await RbacGateDecider.DecideAsync(gate, OptionalTool, Identity, state, resource, CancellationToken.None);
+        var decision = await RbacGateDecider.DecideAsync(gate, NeverCalledResolver, OptionalTool, Identity, state, resource, CancellationToken.None);
 
         Assert.False(decision.Allowed);
         Assert.Equal("resource_argument_malformed", decision.Reason);
@@ -93,7 +98,7 @@ public class RbacGateDeciderTests
         var arguments = ParseArguments("""{"projectId":"MyProject"}""");
 
         var state = RbacGateDecider.TryExtractResource(ResourceKind.Project, arguments, out var resource);
-        var decision = await RbacGateDecider.DecideAsync(gate, OptionalTool, Identity, state, resource, CancellationToken.None);
+        var decision = await RbacGateDecider.DecideAsync(gate, NeverCalledResolver, OptionalTool, Identity, state, resource, CancellationToken.None);
 
         Assert.True(decision.Allowed);
         Assert.Equal(1, gate.ProjectCallCount);
@@ -112,28 +117,51 @@ public class RbacGateDeciderTests
         var gate = new CountingGate();
         var state = RbacGateDecider.TryExtractResource(ResourceKind.Project, null, out var resource);
 
-        var decision = await RbacGateDecider.DecideAsync(gate, toolName, identity: null, state, resource, CancellationToken.None);
+        var decision = await RbacGateDecider.DecideAsync(gate, NeverCalledResolver, toolName, identity: null, state, resource, CancellationToken.None);
 
         Assert.False(decision.Allowed);
         Assert.Equal("identity_unresolved", decision.Reason);
     }
 
-    public static IEnumerable<object[]> DeferredToolNames() =>
+    public static IEnumerable<object[]> VisibleSetFilteredToolNames() =>
         ToolResourcePermissionMap.Entries
-            .Where(e => e.Value.Enforcement == GateEnforcement.DeferredToLaterSession)
+            .Where(e => e.Value.Enforcement == GateEnforcement.VisibleSetFiltered)
             .Select(e => new object[] { e.Key });
 
     [Theory]
-    [MemberData(nameof(DeferredToolNames))]
-    public async Task DeferredTools_AllowWithNoException_EvenAgainstAThrowingGate(string toolName)
+    [MemberData(nameof(VisibleSetFilteredToolNames))]
+    public async Task VisibleSetFilteredTools_AllowWithNoGateCall_FilteringHappensInTheToolBodyInstead(string toolName)
     {
         var gate = new ThrowingGate();
 
         var decision = await RbacGateDecider.DecideAsync(
-            gate, toolName, Identity, RbacGateDecider.ArgumentState.Absent, resource: null, CancellationToken.None);
+            gate, NeverCalledResolver, toolName, Identity, RbacGateDecider.ArgumentState.Absent, resource: null, CancellationToken.None);
 
         Assert.True(decision.Allowed);
-        Assert.StartsWith("deferred_", decision.Reason, StringComparison.Ordinal);
+        Assert.Equal("visible_set_filtering_applied", decision.Reason);
+    }
+
+    [Fact]
+    public async Task RequiredGlobalPermission_ChecksTheGate_AndPropagatesItsDecision()
+    {
+        var gate = new CountingGate();
+
+        var decision = await RbacGateDecider.DecideAsync(
+            gate, NeverCalledResolver, TeamCityToolNames.GetAuditLog, Identity, RbacGateDecider.ArgumentState.Absent, resource: null, CancellationToken.None);
+
+        Assert.True(decision.Allowed);
+        Assert.Equal(1, gate.GlobalCallCount);
+    }
+
+    [Fact]
+    public async Task RequiredGlobalPermission_Denies_WhenTheGateDenies()
+    {
+        var gate = new AlwaysDenyGate();
+
+        var decision = await RbacGateDecider.DecideAsync(
+            gate, NeverCalledResolver, TeamCityToolNames.GetAuditLog, Identity, RbacGateDecider.ArgumentState.Absent, resource: null, CancellationToken.None);
+
+        Assert.False(decision.Allowed);
     }
 
     [Fact]
@@ -142,7 +170,7 @@ public class RbacGateDeciderTests
         var gate = new ThrowingGate();
 
         var decision = await RbacGateDecider.DecideAsync(
-            gate, TeamCityToolNames.ServerInfo, identity: null, RbacGateDecider.ArgumentState.Absent, resource: null, CancellationToken.None);
+            gate, NeverCalledResolver, TeamCityToolNames.ServerInfo, identity: null, RbacGateDecider.ArgumentState.Absent, resource: null, CancellationToken.None);
 
         Assert.True(decision.Allowed);
         Assert.Equal("never_gated", decision.Reason);
@@ -154,7 +182,7 @@ public class RbacGateDeciderTests
         var gate = new CountingGate2 { Enabled = false };
 
         var decision = await RbacGateDecider.DecideAsync(
-            gate, "not_a_real_tool_name", Identity, RbacGateDecider.ArgumentState.Absent, resource: null, CancellationToken.None);
+            gate, NeverCalledResolver, "not_a_real_tool_name", Identity, RbacGateDecider.ArgumentState.Absent, resource: null, CancellationToken.None);
 
         Assert.True(decision.Allowed);
         Assert.Equal("rbac_disabled", decision.Reason);
@@ -166,7 +194,7 @@ public class RbacGateDeciderTests
         var gate = new CountingGate();
 
         var decision = await RbacGateDecider.DecideAsync(
-            gate, "not_a_real_tool_name", Identity, RbacGateDecider.ArgumentState.Absent, resource: null, CancellationToken.None);
+            gate, NeverCalledResolver, "not_a_real_tool_name", Identity, RbacGateDecider.ArgumentState.Absent, resource: null, CancellationToken.None);
 
         Assert.False(decision.Allowed);
         Assert.Equal("tool_unmapped", decision.Reason);
@@ -176,6 +204,18 @@ public class RbacGateDeciderTests
     {
         using var doc = JsonDocument.Parse(json);
         return doc.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.Clone());
+    }
+
+    private sealed class NeverCalledResourceProjectResolver : IResourceProjectResolver
+    {
+        public ValueTask<string> ResolveProjectForBuildTypeAsync(string buildTypeId, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Should never be called by this file's Project/deferred/unmapped test cases.");
+
+        public ValueTask<string> ResolveProjectForBuildAsync(string buildId, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Should never be called by this file's Project/deferred/unmapped test cases.");
+
+        public ValueTask<string> ResolveProjectForVcsRootAsync(string vcsRootId, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Should never be called by this file's Project/deferred/unmapped test cases.");
     }
 
     /// <summary>A minimal gate whose <see cref="Enabled"/> can be toggled, for the
@@ -197,16 +237,12 @@ public class RbacGateDeciderTests
             string toolName, string identity, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("Should never be called when the gate is disabled.");
 
-        public ValueTask<IReadOnlyCollection<string>> GetVisibleProjectsAsync(
+        public ValueTask<VisibleProjectSet> GetVisibleProjectSetAsync(
             string toolName, string identity, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("Should never be called when the gate is disabled.");
 
-        public ValueTask<IReadOnlyCollection<T>> FilterAllowedProjectsAsync<T>(
-            string toolName,
-            string identity,
-            IReadOnlyCollection<T> items,
-            Func<T, string?> projectIdSelector,
-            CancellationToken cancellationToken = default) =>
+        public ValueTask<IReadOnlySet<string>> FilterProjectsAsync(
+            string toolName, string identity, IReadOnlyCollection<string> projectIds, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("Should never be called when the gate is disabled.");
     }
 }

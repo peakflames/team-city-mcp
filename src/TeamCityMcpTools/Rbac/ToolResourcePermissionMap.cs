@@ -36,49 +36,51 @@ public static class ToolResourcePermissionMap
             [TeamCityToolNames.GetRunningBuilds] = new(ResourceKind.Project, TeamCityPermission.ViewProject, GateEnforcement.OptionalProjectArgument),
             [TeamCityToolNames.GetQueuedBuilds] = new(ResourceKind.Project, TeamCityPermission.ViewProject, GateEnforcement.OptionalProjectArgument),
 
-            // vcsRootId resource that pivots to a project. The tool body's own fields= is already
-            // pivot-free (requests project(id,name)) — that is a fetch-side optimization, distinct
-            // from the enforcement point's pivot, which Session 3 generalizes. Deferred this session.
-            [TeamCityToolNames.GetVcsRoot] = new(ResourceKind.VcsRoot, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
+            // vcsRootId resource that pivots to a project via IResourceProjectResolver. Enforced this
+            // session (Session 3).
+            [TeamCityToolNames.GetVcsRoot] = new(ResourceKind.VcsRoot, TeamCityPermission.ViewProject, GateEnforcement.RequiredVcsRootArgument),
 
-            // G2 - buildType-scoped (4). Needs a buildTypeId -> projectId pivot. Deferred to Session 3.
-            [TeamCityToolNames.GetBuildType] = new(ResourceKind.BuildType, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.GetBuildTypeParameters] = new(ResourceKind.BuildType, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.GetBuildTypeFeatures] = new(ResourceKind.BuildType, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.ListBuilds] = new(ResourceKind.BuildType, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
+            // G2 - buildType-scoped (4). buildTypeId -> projectId pivot via IResourceProjectResolver.
+            // Enforced this session (Session 3).
+            [TeamCityToolNames.GetBuildType] = new(ResourceKind.BuildType, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildTypeArgument),
+            [TeamCityToolNames.GetBuildTypeParameters] = new(ResourceKind.BuildType, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildTypeArgument),
+            [TeamCityToolNames.GetBuildTypeFeatures] = new(ResourceKind.BuildType, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildTypeArgument),
+            [TeamCityToolNames.ListBuilds] = new(ResourceKind.BuildType, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildTypeArgument),
 
-            // G3 - build-scoped (10). Needs a buildId -> buildTypeId -> projectId pivot. Deferred to
-            // Session 3.
-            [TeamCityToolNames.GetBuild] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.GetBuildStatus] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.GetBuildParameters] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.GetBuildProblems] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.GetBuildChanges] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
+            // G3 - build-scoped (10). buildId -> buildTypeId -> projectId pivot via
+            // IResourceProjectResolver. Enforced this session (Session 3).
+            [TeamCityToolNames.GetBuild] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildArgument),
+            [TeamCityToolNames.GetBuildStatus] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildArgument),
+            [TeamCityToolNames.GetBuildParameters] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildArgument),
+            [TeamCityToolNames.GetBuildProblems] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildArgument),
+            [TeamCityToolNames.GetBuildChanges] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildArgument),
             // Also G5: composite/chain-parts fan-out — chain parts are usually in the root build's
-            // project, but a part resolving to a different project needs its own check.
-            [TeamCityToolNames.GetBuildTests] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession, TeamCityPermission.ViewProject),
-            [TeamCityToolNames.GetBuildLogFailures] = new(ResourceKind.Build, TeamCityPermission.ViewBuildRuntimeData, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.SearchBuildLog] = new(ResourceKind.Build, TeamCityPermission.ViewBuildRuntimeData, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.ListBuildArtifacts] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
+            // project, but a part resolving to a different project is pruned from the chain-parts
+            // table via CrossProjectPermission. Enforced this session (Session 5).
+            [TeamCityToolNames.GetBuildTests] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildArgument, TeamCityPermission.ViewProject),
+            [TeamCityToolNames.GetBuildLogFailures] = new(ResourceKind.Build, TeamCityPermission.ViewBuildRuntimeData, GateEnforcement.RequiredBuildArgument),
+            [TeamCityToolNames.SearchBuildLog] = new(ResourceKind.Build, TeamCityPermission.ViewBuildRuntimeData, GateEnforcement.RequiredBuildArgument),
+            [TeamCityToolNames.ListBuildArtifacts] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildArgument),
             // Highest-priority tool to gate — returns raw artifact bytes.
-            [TeamCityToolNames.GetBuildArtifactContent] = new(ResourceKind.Build, TeamCityPermission.ViewFileContent, GateEnforcement.DeferredToLaterSession),
+            [TeamCityToolNames.GetBuildArtifactContent] = new(ResourceKind.Build, TeamCityPermission.ViewFileContent, GateEnforcement.RequiredBuildArgument),
 
             // G4 - cross-project list/search (5, excluding the dual G1/G4 pair above). Bulk
-            // visible-set + client-side intersection — deferred to Session 4.
-            [TeamCityToolNames.ListProjects] = new(ResourceKind.CrossProject, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.GetProjectHierarchy] = new(ResourceKind.CrossProject, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.SearchBuilds] = new(ResourceKind.CrossProject, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.GetTestHistory] = new(ResourceKind.CrossProject, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
-            [TeamCityToolNames.ListMutes] = new(ResourceKind.CrossProject, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession),
+            // visible-set + client-side intersection. Enforced this session (Session 4).
+            [TeamCityToolNames.ListProjects] = new(ResourceKind.CrossProject, TeamCityPermission.ViewProject, GateEnforcement.VisibleSetFiltered),
+            [TeamCityToolNames.GetProjectHierarchy] = new(ResourceKind.CrossProject, TeamCityPermission.ViewProject, GateEnforcement.VisibleSetFiltered),
+            [TeamCityToolNames.SearchBuilds] = new(ResourceKind.CrossProject, TeamCityPermission.ViewProject, GateEnforcement.VisibleSetFiltered),
+            [TeamCityToolNames.GetTestHistory] = new(ResourceKind.CrossProject, TeamCityPermission.ViewProject, GateEnforcement.VisibleSetFiltered),
+            [TeamCityToolNames.ListMutes] = new(ResourceKind.CrossProject, TeamCityPermission.ViewProject, GateEnforcement.VisibleSetFiltered),
             // Flagged in the design doc: surfaces usernames + config-change details server-wide;
-            // gated on a global permission, not per-project filtering. Deliberately NOT enforced
-            // this session — CheckGlobalAsync's global:true path is untested and the escalation
-            // risk (see the session tracker) is real. Lands with Session 4.
-            [TeamCityToolNames.GetAuditLog] = new(ResourceKind.Global, TeamCityPermission.ViewAuditLog, GateEnforcement.DeferredToLaterSession),
+            // gated on a global permission, not per-project filtering, for every call including one
+            // that supplies affectedProjectId. Enforced this session (Session 4).
+            [TeamCityToolNames.GetAuditLog] = new(ResourceKind.Global, TeamCityPermission.ViewAuditLog, GateEnforcement.RequiredGlobalPermission),
 
-            // G5 - fan-out beyond teamcity_get_build_tests, already counted in G3 above (2). Deferred.
-            [TeamCityToolNames.GetBuildDependencyTree] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession, TeamCityPermission.ViewProject),
-            [TeamCityToolNames.GetBuildTypeDependencyGraph] = new(ResourceKind.BuildType, TeamCityPermission.ViewProject, GateEnforcement.DeferredToLaterSession, TeamCityPermission.ViewProject),
+            // G5 - fan-out beyond teamcity_get_build_tests, already counted in G3 above (2). Root
+            // resource gated via the same S3 pivot; fan-out nodes discovered beyond the root are
+            // pruned in the tool body via CrossProjectPermission. Enforced this session (Session 5).
+            [TeamCityToolNames.GetBuildDependencyTree] = new(ResourceKind.Build, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildArgument, TeamCityPermission.ViewProject),
+            [TeamCityToolNames.GetBuildTypeDependencyGraph] = new(ResourceKind.BuildType, TeamCityPermission.ViewProject, GateEnforcement.RequiredBuildTypeArgument, TeamCityPermission.ViewProject),
 
             // G6 - unavoidably server-wide (1). Deliberate exception, not an omission.
             [TeamCityToolNames.ServerInfo] = new(ResourceKind.Ungated, null, GateEnforcement.NeverGated),

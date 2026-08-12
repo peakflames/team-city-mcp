@@ -23,7 +23,7 @@ public partial class ProjectTools
         try
         {
             var fields = "id,name,description,parentProject(id,name),projects(project(id,name)),buildTypes(buildType(id,name)),templates(buildType(id,name))";
-            var url = $"app/rest/projects/id:{projectId}?fields={Uri.EscapeDataString(fields)}";
+            var url = $"app/rest/projects/id:{Uri.EscapeDataString(projectId)}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
 

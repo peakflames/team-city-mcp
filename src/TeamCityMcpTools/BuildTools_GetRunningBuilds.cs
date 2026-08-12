@@ -10,6 +10,9 @@ public partial class BuildTools
         [Description("Optional project ID to filter running builds by project.")]
         string? projectId = null)
     {
+        if (!string.IsNullOrWhiteSpace(projectId) && !TeamCityLocator.IsSafeId(projectId))
+            return $"ERROR: Invalid projectId '{projectId}'.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -22,7 +25,7 @@ public partial class BuildTools
         {
             var locatorParts = new List<string> { "state:running" };
             if (!string.IsNullOrWhiteSpace(projectId))
-                locatorParts.Add($"project:id:{projectId}");
+                locatorParts.Add($"project:(id:{projectId})");
 
             var locator = string.Join(",", locatorParts);
             var fields = "build(id,number,status,branchName,startDate,percentageComplete,agent(name),buildType(name,projectName),webUrl)";

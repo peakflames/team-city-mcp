@@ -68,8 +68,20 @@ public class BuildDetails : BuildSummary
 
 public class BuildTypeInfo
 {
+    /// <summary>Not requested by every consumer's <c>fields=</c> string — null wherever it wasn't
+    /// asked for. RBAC-scoped consumers (<c>teamcity_search_builds</c>, <c>teamcity_get_test_history</c>)
+    /// request it explicitly, since <see cref="ProjectName"/> is a display name and must never key a
+    /// visibility check.</summary>
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
     [JsonPropertyName("name")]
     public string? Name { get; set; }
+
+    /// <summary>Same caveat as <see cref="Id"/> — only populated when a consumer's <c>fields=</c>
+    /// string requests <c>projectId</c> on the buildType.</summary>
+    [JsonPropertyName("projectId")]
+    public string? ProjectId { get; set; }
 
     [JsonPropertyName("projectName")]
     public string? ProjectName { get; set; }

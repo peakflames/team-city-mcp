@@ -24,7 +24,7 @@ public partial class ProjectTools
         try
         {
             var fields = "count,projectFeature(id,type,disabled,inherited,properties(property(name,value)))";
-            var url = $"app/rest/projects/id:{projectId}/projectFeatures?fields={Uri.EscapeDataString(fields)}";
+            var url = $"app/rest/projects/id:{Uri.EscapeDataString(projectId)}/projectFeatures?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
 

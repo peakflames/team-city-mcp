@@ -22,7 +22,7 @@ public partial class ProjectTools
         try
         {
             var fields = "id,name,vcsName,project(id,name),properties(property(name,value))";
-            var url = $"app/rest/vcs-roots/id:{vcsRootId}?fields={Uri.EscapeDataString(fields)}";
+            var url = $"app/rest/vcs-roots/id:{Uri.EscapeDataString(vcsRootId)}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
 

@@ -29,6 +29,13 @@ public partial class BuildTools
         [Description("Maximum number of mutes to fetch from the server before filtering. Defaults to 50.")]
         int count = 50)
     {
+        if (!string.IsNullOrWhiteSpace(buildId) && !TeamCityLocator.IsNumericId(buildId))
+            return $"ERROR: Invalid buildId '{buildId}' — must be numeric.";
+        if (!string.IsNullOrWhiteSpace(buildTypeId) && !TeamCityLocator.IsSafeId(buildTypeId))
+            return $"ERROR: Invalid buildTypeId '{buildTypeId}'.";
+        if (!string.IsNullOrWhiteSpace(projectId) && !TeamCityLocator.IsSafeId(projectId))
+            return $"ERROR: Invalid projectId '{projectId}'.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -44,41 +51,33 @@ public partial class BuildTools
 
             if (!string.IsNullOrWhiteSpace(buildId))
             {
-                var buildFields = "buildTypeId,buildType(id,projectId)";
-                var buildUrl = $"app/rest/builds/id:{buildId}?fields={Uri.EscapeDataString(buildFields)}";
-                var buildResponse = await client.HttpClient.GetAsync(buildUrl);
+                var buildPivot = await TeamCityPivotQueries.ResolveBuildAsync(client, buildId);
 
-                if (buildResponse.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                if (buildPivot.HttpStatusCode == (int)System.Net.HttpStatusCode.Unauthorized)
                     return "ERROR: Authentication failed — check the access token.";
-                if (buildResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+                if (buildPivot.Outcome == TeamCityPivotQueries.PivotOutcome.NotFound)
                     return $"ERROR: Build with ID '{buildId}' was not found.";
-                if (!buildResponse.IsSuccessStatusCode)
-                    return $"ERROR: TeamCity returned {(int)buildResponse.StatusCode}: {buildResponse.ReasonPhrase}";
+                if (buildPivot.Outcome == TeamCityPivotQueries.PivotOutcome.UpstreamError)
+                    return $"ERROR: TeamCity returned {buildPivot.HttpStatusCode?.ToString() ?? "an error"} while resolving build '{buildId}'.";
 
-                var buildJson = await buildResponse.Content.ReadAsStringAsync();
-                var buildLookup = JsonSerializer.Deserialize(buildJson, TeamCityJsonContext.Default.MuteBuildLookup);
-
-                resolvedBuildTypeId = buildLookup?.BuildTypeId ?? buildLookup?.BuildType?.Id;
-                resolvedProjectId = buildLookup?.BuildType?.ProjectId;
+                resolvedBuildTypeId = buildPivot.BuildTypeId;
+                resolvedProjectId = buildPivot.ProjectId;
 
                 if (resolvedBuildTypeId is null || resolvedProjectId is null)
                     return $"ERROR: Unable to resolve the build configuration/project for build '{buildId}'.";
             }
             else if (!string.IsNullOrWhiteSpace(buildTypeId))
             {
-                var buildTypeUrl = $"app/rest/buildTypes/id:{buildTypeId}?fields={Uri.EscapeDataString("projectId")}";
-                var buildTypeResponse = await client.HttpClient.GetAsync(buildTypeUrl);
+                var buildTypePivot = await TeamCityPivotQueries.ResolveBuildTypeProjectAsync(client, buildTypeId);
 
-                if (buildTypeResponse.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                if (buildTypePivot.HttpStatusCode == (int)System.Net.HttpStatusCode.Unauthorized)
                     return "ERROR: Authentication failed — check the access token.";
-                if (buildTypeResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+                if (buildTypePivot.Outcome == TeamCityPivotQueries.PivotOutcome.NotFound)
                     return $"ERROR: Build type with ID '{buildTypeId}' was not found.";
-                if (!buildTypeResponse.IsSuccessStatusCode)
-                    return $"ERROR: TeamCity returned {(int)buildTypeResponse.StatusCode}: {buildTypeResponse.ReasonPhrase}";
+                if (buildTypePivot.Outcome == TeamCityPivotQueries.PivotOutcome.UpstreamError)
+                    return $"ERROR: TeamCity returned {buildTypePivot.HttpStatusCode?.ToString() ?? "an error"} while resolving build type '{buildTypeId}'.";
 
-                var buildTypeJson = await buildTypeResponse.Content.ReadAsStringAsync();
-                var buildTypeSummary = JsonSerializer.Deserialize(buildTypeJson, TeamCityJsonContext.Default.BuildTypeSummary);
-                resolvedProjectId = buildTypeSummary?.ProjectId;
+                resolvedProjectId = buildTypePivot.ProjectId;
 
                 if (resolvedProjectId is null)
                     return $"ERROR: Unable to resolve the project for build type '{buildTypeId}'.";
@@ -91,7 +90,7 @@ public partial class BuildTools
             var locator = string.Join(",", locatorParts);
             var fields = "count,mute(id," +
                          "assignment(text,user(username,name),timestamp)," +
-                         "scope(project(id,name),buildTypes(buildType(id,name,projectName)),buildType(id,name,projectName))," +
+                         "scope(project(id,name),buildTypes(buildType(id,name,projectId,projectName)),buildType(id,name,projectId,projectName))," +
                          "target(tests(test(id,name)),problems(problem(id)),anyProblem)," +
                          "resolution(type,time))";
             var url = $"app/rest/mutes?locator={Uri.EscapeDataString(locator)}&fields={Uri.EscapeDataString(fields)}";
@@ -128,6 +127,33 @@ public partial class BuildTools
                         t.Name?.Contains(testNameFilter, StringComparison.OrdinalIgnoreCase) ?? false) ?? false
                 ).ToList();
 
+            var gate = scope.ServiceProvider.GetRequiredService<IPermissionGate>();
+            var callContext = scope.ServiceProvider.GetRequiredService<IRbacToolCallContext>();
+            VisibleProjectSet? visibleSet = null;
+
+            if (gate.Enabled && callContext.CurrentIdentity is { } identity)
+                visibleSet = await gate.GetVisibleProjectSetAsync(TeamCityToolNames.ListMutes, identity);
+
+            var filteringActive = visibleSet is not null && !visibleSet.IsGlobal;
+
+            if (filteringActive)
+            {
+                var beforeVisibilityCount = mutes.Count;
+
+                // A mute scoped across build types in both a visible and a hidden project must
+                // require every scoped project visible, not any — otherwise its **Scope:** line
+                // below would print every scoped build type, including ones in a project the caller
+                // can't see.
+                mutes = mutes.Where(m =>
+                    m.Scope?.Project is { } proj ? visibleSet!.Contains(proj.Id) :
+                    m.Scope?.BuildTypes?.BuildType is { Count: > 0 } scopedBuildTypes ? scopedBuildTypes.All(bt => visibleSet!.Contains(bt.ProjectId)) :
+                    m.Scope?.BuildType is { } scopedBuildType && visibleSet!.Contains(scopedBuildType.ProjectId)
+                ).ToList();
+
+                if (mutes.Count < beforeVisibilityCount)
+                    callContext.ReportFilteredOut(beforeVisibilityCount - mutes.Count);
+            }
+
             var sb = new StringBuilder();
             sb.AppendLine("# Mutes");
             sb.AppendLine();
@@ -141,7 +167,12 @@ public partial class BuildTools
                 sb.AppendLine("**Scope:** server-wide");
             if (!string.IsNullOrWhiteSpace(testNameFilter))
                 sb.AppendLine($"**Test Name Filter:** {testNameFilter}");
-            sb.AppendLine($"**Fetched:** {fetchedCount} (server locator, before filtering)");
+            // Omitted entirely once filtering is active: it names no resource directly, but it is a
+            // cardinality oracle — a caller could vary projectId/count and watch this pre-filter
+            // total move while the visible list stays empty, binary-searching hidden mutes into a
+            // project. The RBAC-off golden output is unaffected, since this branch never runs then.
+            if (!filteringActive)
+                sb.AppendLine($"**Fetched:** {fetchedCount} (server locator, before filtering)");
             sb.AppendLine($"**Matched:** {mutes.Count}");
             sb.AppendLine();
 

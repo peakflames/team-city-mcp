@@ -44,6 +44,9 @@ public partial class BuildTools
             !string.Equals(filter, "all", StringComparison.OrdinalIgnoreCase))
             return $"ERROR: Unknown filter '{filter}'. Use 'failed', 'muted', or 'all'.";
 
+        if (!TeamCityLocator.IsNumericId(buildId))
+            return $"ERROR: Invalid buildId '{buildId}' — must be numeric.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -56,8 +59,8 @@ public partial class BuildTools
         {
             var summaryFields = "id,number,composite,buildType(id,name)," +
                                  "testOccurrences(count,passed,failed,ignored,muted,newFailed)," +
-                                 "snapshot-dependencies(build(id,number,status,composite,buildType(id,name)))";
-            var summaryUrl = $"app/rest/builds/id:{buildId}?fields={Uri.EscapeDataString(summaryFields)}";
+                                 "snapshot-dependencies(build(id,number,status,composite,buildType(id,name,projectId)))";
+            var summaryUrl = $"app/rest/builds/id:{Uri.EscapeDataString(buildId)}?fields={Uri.EscapeDataString(summaryFields)}";
             var summaryResponse = await client.HttpClient.GetAsync(summaryUrl);
 
             if (summaryResponse.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -132,7 +135,7 @@ public partial class BuildTools
             {
                 sb.AppendLine($"No test occurrences matched filter '{filter}'.");
                 if (isComposite)
-                    await AppendChainParts(client, sb, summary);
+                    await AppendChainParts(_serviceProvider, client, sb, summary);
                 return TeamCityFormat.Clamp(sb.ToString());
             }
 
@@ -230,7 +233,7 @@ public partial class BuildTools
             }
 
             if (isComposite)
-                await AppendChainParts(client, sb, summary);
+                await AppendChainParts(_serviceProvider, client, sb, summary);
 
             return TeamCityFormat.Clamp(sb.ToString());
         }
@@ -240,9 +243,12 @@ public partial class BuildTools
         }
     }
 
-    private static async Task AppendChainParts(TeamCityClient client, StringBuilder sb, BuildCompositeSummary summary)
+    private static async Task AppendChainParts(
+        IServiceProvider serviceProvider, TeamCityClient client, StringBuilder sb, BuildCompositeSummary summary)
     {
         var parts = summary.SnapshotDependencies?.Build;
+        parts = await FilterVisibleChainParts(serviceProvider, parts);
+
         sb.AppendLine("## Chain Parts");
         sb.AppendLine();
 
@@ -282,6 +288,38 @@ public partial class BuildTools
             sb.AppendLine($"\n*({parts.Count - MaxChainPartsRendered} additional sub-build(s) not shown.)*");
 
         sb.AppendLine();
+    }
+
+    /// <summary>G5: a composite build's chain parts can span other projects — prunes any part whose
+    /// own project isn't visible before it ever reaches the table, so both "no sub-builds exist" and
+    /// "every sub-build's project is hidden" render the identical "No direct snapshot-dependency
+    /// sub-builds found." line, and <see cref="MaxChainPartsRendered"/>'s overflow count is computed
+    /// on the already-pruned list rather than leaking a pre-filter total.</summary>
+    private static async Task<List<ChainPartBuildRef>?> FilterVisibleChainParts(
+        IServiceProvider serviceProvider, List<ChainPartBuildRef>? parts)
+    {
+        if (parts is not { Count: > 0 })
+            return parts;
+
+        var discoveredProjectIds = parts
+            .Select(p => p.BuildType?.ProjectId)
+            .Where(id => id is not null)
+            .Select(id => id!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (discoveredProjectIds.Length == 0)
+            return parts;
+
+        var visibleProjectIds = await ToolGate.FilterVisibleProjectIdsAsync(
+            serviceProvider, TeamCityToolNames.GetBuildTests, discoveredProjectIds);
+
+        if (visibleProjectIds is null)
+            return parts;
+
+        return parts
+            .Where(p => p.BuildType?.ProjectId is { } projectId && visibleProjectIds.Contains(projectId))
+            .ToList();
     }
 
     private static string IndexToLetters(int index)

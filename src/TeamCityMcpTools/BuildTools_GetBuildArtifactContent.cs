@@ -17,6 +17,13 @@ public partial class BuildTools
         [Description("The artifact path relative to the artifact root (e.g. '.teamcity/settings-digest.txt' or 'reports/summary.log').")]
         string path)
     {
+        if (!TeamCityLocator.IsNumericId(buildId))
+            return $"ERROR: Invalid buildId '{buildId}' — must be numeric.";
+
+        var segments = path.TrimStart('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0 || segments.Any(s => s == ".."))
+            return $"ERROR: Invalid artifact path '{path}' — path traversal is not allowed.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -27,7 +34,8 @@ public partial class BuildTools
 
         try
         {
-            var url = $"app/rest/builds/id:{buildId}/artifacts/content/{path.TrimStart('/')}";
+            var escapedPath = string.Join('/', segments.Select(Uri.EscapeDataString));
+            var url = $"app/rest/builds/id:{Uri.EscapeDataString(buildId)}/artifacts/content/{escapedPath}";
 
             var response = await client.HttpClient.GetAsync(url);
 
