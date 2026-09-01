@@ -20,6 +20,7 @@ public static class StubAuthorizationServerApp
         app.MapGet("/.well-known/openid-configuration", DiscoveryEndpoint.Handle);
         app.MapGet("/jwks", JwksEndpoint.Handle);
         app.MapPost("/connect/token", TokenEndpoint.HandleAsync);
+        app.MapGet("/oauth2/v1/userinfo", UserInfoEndpoint.Handle);
 
         return app;
     }

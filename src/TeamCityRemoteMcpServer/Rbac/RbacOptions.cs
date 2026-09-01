@@ -24,6 +24,21 @@ public sealed class RbacOptions
     /// <c>email==username</c> convention — see <see cref="TeamCityIdentityResolver"/>).</summary>
     public string IdentityClaim { get; set; } = "email";
 
+    /// <summary>Where the identity value comes from. <see cref="Rbac.IdentitySource.Claim"/> reads
+    /// <see cref="IdentityClaim"/> off the validated access token, which is the only option that
+    /// works with an authorization server able to put the claim there.
+    /// <see cref="Rbac.IdentitySource.UserInfo"/> calls the authorization server's OIDC
+    /// <c>/userinfo</c> endpoint with the caller's own token instead — required for an Okta *org*
+    /// authorization server, whose access tokens carry no <c>email</c> claim at all. Without this,
+    /// identity resolution returns null for every caller and the fail-closed gate denies every call
+    /// while the server still reports healthy.</summary>
+    public IdentitySource IdentitySource { get; set; } = IdentitySource.Claim;
+
+    /// <summary>Ceiling on how long a <c>/userinfo</c> response is reused. The effective TTL is
+    /// <c>min(remaining access-token lifetime, this)</c> — a cached entry must never outlive the token
+    /// it was fetched with, or a revoked token would keep resolving to an identity.</summary>
+    public int UserInfoCacheTtlSeconds { get; set; } = 300;
+
     /// <summary>Cache lands Session 2 — this session, the values are bound and validated but
     /// nothing reads them yet.</summary>
     public int PermissionCacheTtlSeconds { get; set; } = 120;

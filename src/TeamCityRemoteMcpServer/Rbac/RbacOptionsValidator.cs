@@ -35,6 +35,19 @@ public sealed class RbacOptionsValidator : IValidateOptions<RbacOptions>
         if (string.IsNullOrWhiteSpace(options.IdentityClaim))
             failures.Add("Rbac:IdentityClaim must not be blank.");
 
+        if (options.IdentitySource == IdentitySource.UserInfo
+            && string.IsNullOrWhiteSpace(_mcpAuthOptions.Value.Issuer))
+        {
+            // The /userinfo URL is derived from the issuer, so a blank issuer here would produce a
+            // relative URL and deny every caller at runtime instead of at startup.
+            failures.Add(
+                "Rbac:IdentitySource=UserInfo requires McpAuth:Issuer — the /userinfo endpoint is " +
+                "derived from it.");
+        }
+
+        if (options.UserInfoCacheTtlSeconds < 1 || options.UserInfoCacheTtlSeconds > 86400)
+            failures.Add("Rbac:UserInfoCacheTtlSeconds must be between 1 and 86400.");
+
         if (options.PermissionCacheTtlSeconds < 1 || options.PermissionCacheTtlSeconds > 3600)
             failures.Add("Rbac:PermissionCacheTtlSeconds must be between 1 and 3600.");
 

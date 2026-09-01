@@ -107,7 +107,8 @@ internal static class RbacGateDecider
         string? identity,
         ArgumentState argumentState,
         string? resource,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? identityUnresolvedReason = null)
     {
         if (!gate.Enabled)
             return GateDecision.Allow("rbac_disabled");
@@ -120,8 +121,11 @@ internal static class RbacGateDecider
 
         // One uniform rule for all gated tools, deliberately checked before the Deferred branch:
         // an unresolvable caller denies even on tools this session doesn't yet enforce.
+        // The reason is passed in so a throttled identity provider is distinguishable from a caller
+        // who has no identity — same denial for the caller, very different meaning for an operator
+        // reading the audit log. Defaults to the original string when no caller supplies one.
         if (identity is null)
-            return GateDecision.Deny("identity_unresolved");
+            return GateDecision.Deny(identityUnresolvedReason ?? IdentityUnresolvedReasons.Unresolved);
 
         if (spec.Enforcement == GateEnforcement.DeferredToLaterSession)
             return GateDecision.Allow(DeferredReason(spec.Kind));

@@ -33,6 +33,35 @@ public static class RbacServiceCollectionExtensions
         services.AddSingleton<Caching.CachingIdentityResolver>();
         services.AddSingleton<IIdentityResolver>(sp => sp.GetRequiredService<Caching.CachingIdentityResolver>());
 
+        // Where the identity *value* comes from, upstream of the TeamCity lookup above. Both
+        // implementations are registered concretely and the branch is a single eager read of
+        // Rbac:IdentitySource — a config value that selects a service graph, not one a request can
+        // change. Rbac:IdentitySource=Claim (the default) resolves ClaimIdentitySource, which is the
+        // pre-existing behavior verbatim.
+        var identitySource = builder.Configuration.GetValue(
+            $"{RbacOptions.SectionName}:{nameof(RbacOptions.IdentitySource)}", IdentitySource.Claim);
+
+        if (identitySource == IdentitySource.UserInfo)
+        {
+            // The /userinfo call needs the caller's raw bearer token, which lives on HttpContext.Items
+            // because the MCP SDK dispatches a tool call through a nested service scope.
+            services.AddHttpContextAccessor();
+            services.AddHttpClient(OktaUserInfoEmailSource.HttpClientName, client =>
+            {
+                // Short and explicit: this call is on the tool-call request path, so a slow identity
+                // provider must fail fast into a denial rather than hold the caller open.
+                client.Timeout = TimeSpan.FromSeconds(10);
+            });
+
+            services.AddSingleton<OktaUserInfoEmailSource>();
+            services.AddSingleton<IIdentitySource>(sp => sp.GetRequiredService<OktaUserInfoEmailSource>());
+            services.AddSingleton<Caching.IEvictableCache>(sp => sp.GetRequiredService<OktaUserInfoEmailSource>().Cache);
+        }
+        else
+        {
+            services.AddSingleton<IIdentitySource, ClaimIdentitySource>();
+        }
+
         // Replace(), not Add/TryAdd — removes all registration-ordering fragility between the
         // Program.cs default no-op registration and this enabled branch.
         services.AddSingleton<TeamCityPermissionGate>();

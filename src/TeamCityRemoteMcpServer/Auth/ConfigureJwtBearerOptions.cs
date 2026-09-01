@@ -67,5 +67,33 @@ public sealed class ConfigureJwtBearerOptions : IConfigureNamedOptions<JwtBearer
 
         // Pinned — blocks alg-confusion attacks and "none".
         tvp.ValidAlgorithms = ["RS256"];
+
+        CaptureRawTokenForUserInfo(options);
+    }
+
+    /// <summary>
+    /// Stashes the validated raw token on the HttpContext so an OIDC <c>/userinfo</c> call can be made
+    /// on the caller's behalf — the only way to reach an `email` for an authorization server that
+    /// puts none on its access tokens. Captured here rather than re-read from the Authorization
+    /// header downstream so only a token that already *passed* validation is ever reachable.
+    ///
+    /// The existing delegate is chained, not replaced: JwtBearerEvents initializes its delegates to
+    /// no-ops, so overwriting looks harmless today and would silently drop someone else's handler the
+    /// moment one is added.
+    /// </summary>
+    private static void CaptureRawTokenForUserInfo(JwtBearerOptions options)
+    {
+        options.Events ??= new JwtBearerEvents();
+        var previous = options.Events.OnTokenValidated;
+
+        options.Events.OnTokenValidated = async context =>
+        {
+            await previous(context);
+
+            if (context.SecurityToken is JsonWebToken jwt)
+            {
+                context.HttpContext.Items[McpAuthHttpContextItems.RawAccessToken] = jwt.EncodedToken;
+            }
+        };
     }
 }

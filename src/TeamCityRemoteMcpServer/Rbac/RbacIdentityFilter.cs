@@ -27,6 +27,7 @@ public static class RbacIdentityFilter
             var gate = services.GetRequiredService<IPermissionGate>();
             var resourceResolver = services.GetRequiredService<IResourceProjectResolver>();
             var identityResolver = services.GetRequiredService<IIdentityResolver>();
+            var identitySource = services.GetRequiredService<IIdentitySource>();
             var accessor = services.GetRequiredService<IRbacCallContextAccessor>();
             var auditSink = services.GetRequiredService<IMcpAccessAuditSink>();
 
@@ -35,7 +36,11 @@ public static class RbacIdentityFilter
 
             ToolResourcePermissionMap.TryGet(toolName, out var spec);
 
-            var identityClaimValue = request.User?.FindFirst(options.IdentityClaim)?.Value;
+            // Behind IIdentitySource rather than a direct claim read: against an authorization server
+            // that puts no identity claim on its access tokens, a direct read returns null for every
+            // caller and the fail-closed gate denies every call while the server reports healthy.
+            var identity = await identitySource.GetIdentityAsync(request.User, cancellationToken);
+            var identityClaimValue = identity.Value;
             var teamCityUserId = identityClaimValue is not null
                 ? await identityResolver.ResolveAsync(identityClaimValue, cancellationToken)
                 : null;
@@ -56,7 +61,8 @@ public static class RbacIdentityFilter
             try
             {
                 var decision = await RbacGateDecider.DecideAsync(
-                    gate, resourceResolver, toolName, teamCityUserId, argumentState, resource, cancellationToken);
+                    gate, resourceResolver, toolName, teamCityUserId, argumentState, resource, cancellationToken,
+                    identity.UnresolvedReason);
 
                 // Elapsed here is gate latency only — the number the RBAC budget is actually about —
                 // not the downstream tool body's own latency.
@@ -78,7 +84,11 @@ public static class RbacIdentityFilter
                     auditSink.Record(new AccessAuditRecord(
                         DateTimeOffset.UtcNow,
                         request.User?.FindFirst("sub")?.Value,
-                        request.User?.FindFirst("client_id")?.Value,
+                        // "client_id" is RFC 9068's spelling; "cid" is Okta's on an access token. Both
+                        // are checked because the audit record's whole purpose is naming the client,
+                        // and an empty column against a real deployment is a silent loss.
+                        request.User?.FindFirst("client_id")?.Value
+                            ?? request.User?.FindFirst(ClientIdRequirement.ClaimType)?.Value,
                         request.User?.FindFirst("jti")?.Value,
                         identityClaimValue,
                         teamCityUserId,

@@ -24,3 +24,6 @@ global using ModelContextProtocol.AspNetCore.Authentication;
 global using ModelContextProtocol.Authentication;
 global using Serilog;
 global using TeamCityRemoteMcpServer.Auth;
+global using System.Security.Cryptography;
+global using System.Text;
+global using Microsoft.IdentityModel.JsonWebTokens;

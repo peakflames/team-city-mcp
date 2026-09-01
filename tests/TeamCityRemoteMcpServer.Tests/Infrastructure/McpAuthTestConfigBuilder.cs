@@ -18,11 +18,16 @@ public sealed class McpAuthTestConfigBuilder : IDisposable
 
     public string Issuer { get; }
 
+    /// <summary>The stub's own mutable state, for tests that drive its <c>/userinfo</c> behavior.
+    /// Resolved out of the stub's DI container, so it is the same singleton its endpoints see.</summary>
+    public StubAuthorizationServerState State { get; }
+
     public McpAuthTestConfigBuilder()
     {
         _stubAs = StubAuthorizationServerApp.Build([], builder => builder.WebHost.UseUrls("http://127.0.0.1:0"));
         _stubAs.Start();
         Issuer = _stubAs.Urls.First().TrimEnd('/');
+        State = _stubAs.Services.GetRequiredService<StubAuthorizationServerState>();
     }
 
     /// <summary>Mints a token signed with this stub AS's own key/kid — the only combination its

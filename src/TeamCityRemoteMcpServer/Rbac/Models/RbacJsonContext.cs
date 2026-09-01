@@ -12,6 +12,7 @@ namespace TeamCityRemoteMcpServer.Rbac.Models;
 [JsonSerializable(typeof(RbacPermissionAssignmentResponse))]
 [JsonSerializable(typeof(RbacPermissionAssignmentEntry))]
 [JsonSerializable(typeof(RbacProjectRef))]
+[JsonSerializable(typeof(OidcUserInfoResponse))]
 public partial class RbacJsonContext : JsonSerializerContext
 {
 }
