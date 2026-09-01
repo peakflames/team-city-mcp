@@ -22,6 +22,7 @@ public static class AuthenticationServiceCollectionExtensions
             .Bind(builder.Configuration.GetSection(McpAuthOptions.SectionName))
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<McpAuthOptions>, McpAuthOptionsValidator>();
+        services.AddSingleton<IPostConfigureOptions<McpAuthOptions>, ReplaceConfiguredScopesSupported>();
 
         services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearerOptions>();
         services.AddSingleton<IConfigureOptions<McpAuthenticationOptions>, ConfigureMcpAuthenticationOptions>();

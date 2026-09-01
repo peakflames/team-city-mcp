@@ -27,19 +27,28 @@ public sealed class McpAuthOptions
     /// https://teamcity-mcp.example.invalid/mcp.</summary>
     public string ResourceUri { get; set; } = string.Empty;
 
+    /// <summary>Scopes advertised in the RFC 9728 protected-resource metadata, and therefore the
+    /// scopes a conforming client goes on to request. Configuring this key *replaces* the default
+    /// rather than appending to it — see <see cref="ReplaceConfiguredScopesSupported"/>, which
+    /// exists solely to defeat <c>ConfigurationBinder</c>'s append-to-existing-collection
+    /// behavior. An org-authorization-server deployment sets this to the OIDC scopes the tenant can
+    /// actually grant, e.g. <c>openid email profile offline_access</c>.</summary>
     public List<string> ScopesSupported { get; set; } = [OAuthScopes.Read];
 
     /// <summary>
     /// Whether to advertise <see cref="ScopesSupported"/> in the RFC 9728 protected-resource
-    /// metadata at all. Set false for an authorization server with no custom-scope capability:
-    /// advertising <c>teamcity:read</c> there makes a conforming client request a scope the
-    /// authorization server will refuse, failing the whole authorization request.
+    /// metadata at all. Set false for an authorization server that can grant nothing a client
+    /// should ask for: advertising <c>teamcity:read</c> to one with no custom-scope capability
+    /// makes a conforming client request a scope the server will refuse, failing the whole
+    /// authorization request with <c>invalid_scope</c>.
     ///
-    /// This is a separate key rather than "configure an empty list" because an empty list is not
-    /// expressible through configuration. <c>ConfigurationBinder</c> *appends* to an existing
-    /// <c>List&lt;T&gt;</c>, so <see cref="ScopesSupported"/> can only ever grow beyond its default —
-    /// measured, not assumed: binding <c>McpAuth:ScopesSupported:0=zzz</c> yields
-    /// <c>[teamcity:read, zzz]</c>.
+    /// Prefer this over configuring a single blank scope entry. Both suppress the metadata, but a
+    /// blank array element reads as a mistake, and an environment variable cannot express an empty
+    /// array any other way.
+    ///
+    /// Advertising nothing is only correct when every client pins its own scopes locally. A client
+    /// that requests no scopes at all cannot authenticate: an Okta org authorization server answers
+    /// a scope-less authorize request with <c>invalid_scope</c> / "No scopes were requested."
     /// </summary>
     public bool AdvertiseScopes { get; set; } = true;
 

@@ -240,7 +240,61 @@ public class ClientIdBindingTests : IDisposable
         Assert.Contains(OAuthScopes.Read, scopes);
     }
 
+    [Fact]
+    public async Task ConfiguredScopes_ReplaceTheDefault_RatherThanAppendingToIt()
+    {
+        var factory = NewFactory();
+        _mcpAuth.ApplyOrgAuthorizationServerShape(factory, AllowedClientId);
+
+        var scopes = await GetAdvertisedScopesAsync(factory);
+
+        // The whole point. ConfigurationBinder appends to a non-empty collection, so without
+        // ReplaceConfiguredScopesSupported this would be [teamcity:read, openid, email, ...] and a
+        // conforming client would request teamcity:read from an authorization server that cannot
+        // grant it — failing the authorization request outright with invalid_scope.
+        Assert.Equal(McpAuthTestConfigBuilder.OrgAuthorizationServerScopes, scopes);
+        Assert.DoesNotContain(OAuthScopes.Read, scopes);
+    }
+
+    [Fact]
+    public async Task ConfiguredScopes_DropBlankEntries()
+    {
+        var factory = NewFactory();
+        _mcpAuth.Apply(factory)
+            .With("McpAuth:ScopesSupported:0", "openid")
+            .With("McpAuth:ScopesSupported:1", "   ")
+            .With("McpAuth:ScopesSupported:2", "email");
+
+        var scopes = await GetAdvertisedScopesAsync(factory);
+
+        Assert.Equal(new[] { "openid", "email" }, scopes);
+    }
+
+    [Fact]
+    public async Task SingleBlankConfiguredScope_AdvertisesNothing()
+    {
+        var factory = NewFactory();
+        // The only way an environment variable can express an empty array. AdvertiseScopes=false
+        // says the same thing more legibly, but both must land on the same published metadata.
+        _mcpAuth.Apply(factory).With("McpAuth:ScopesSupported:0", "");
+
+        var scopes = await GetAdvertisedScopesAsync(factory);
+
+        Assert.Empty(scopes);
+    }
+
+
     // ----------------------------------------------------------------
+
+    private static async Task<string[]> GetAdvertisedScopesAsync(McpServerFactory factory)
+    {
+        var body = await GetResourceMetadataAsync(factory);
+
+        return body.GetProperty("scopes_supported")
+            .EnumerateArray()
+            .Select(e => e.GetString() ?? string.Empty)
+            .ToArray();
+    }
 
     private static async Task<JsonElement> GetResourceMetadataAsync(McpServerFactory factory)
     {

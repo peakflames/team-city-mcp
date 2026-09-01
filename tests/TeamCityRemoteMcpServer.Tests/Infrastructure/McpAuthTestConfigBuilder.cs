@@ -56,8 +56,15 @@ public sealed class McpAuthTestConfigBuilder : IDisposable
         .With("McpAuth:Issuer", Issuer)
         .With("McpAuth:ResourceUri", ResourceUri);
 
+    /// <summary>The OIDC scopes an Okta org authorization server can actually grant, and therefore
+    /// the exact set such a deployment advertises. Notably absent: <c>teamcity:read</c>, which the
+    /// org authorization server has no way to issue.</summary>
+    public static readonly string[] OrgAuthorizationServerScopes =
+        ["openid", "email", "profile", "offline_access"];
+
     /// <summary>The org-authorization-server shape from the feasibility study: no audience binding,
-    /// a `cid` allowlist standing in for it, and no scope requirement.</summary>
+    /// a `cid` allowlist standing in for it, no scope requirement, and metadata advertising only
+    /// the OIDC scopes the tenant can grant.</summary>
     public McpServerFactory ApplyOrgAuthorizationServerShape(
         McpServerFactory factory,
         params string[] allowedClientIds)
@@ -65,6 +72,9 @@ public sealed class McpAuthTestConfigBuilder : IDisposable
         Apply(factory)
             .With("McpAuth:ValidateAudience", "false")
             .With("McpAuth:RequireScope", "false");
+
+        for (var i = 0; i < OrgAuthorizationServerScopes.Length; i++)
+            factory.With($"McpAuth:ScopesSupported:{i}", OrgAuthorizationServerScopes[i]);
 
         for (var i = 0; i < allowedClientIds.Length; i++)
             factory.With($"McpAuth:AllowedClientIds:{i}", allowedClientIds[i]);

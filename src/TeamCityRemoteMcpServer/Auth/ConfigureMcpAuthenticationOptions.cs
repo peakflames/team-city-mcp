@@ -37,10 +37,11 @@ public sealed class ConfigureMcpAuthenticationOptions : IConfigureNamedOptions<M
             Resource = auth.ResourceUri,
             AuthorizationServers = new List<string> { auth.Issuer },
             BearerMethodsSupported = new List<string> { "header" },
-            // AdvertiseScopes=false yields an empty list, which config alone cannot express — see
-            // McpAuthOptions.AdvertiseScopes. Blank entries are dropped either way: RFC 6749's
-            // scope-token is 1*NQCHAR, so a blank is never a scope a client could legitimately
-            // request, and advertising one would invite exactly that request.
+            // AdvertiseScopes=false publishes an empty list. The configured scopes themselves get
+            // replace-not-append semantics upstream in ReplaceConfiguredScopesSupported. Blank
+            // entries are dropped at both layers: RFC 6749's scope-token is 1*NQCHAR, so a blank is
+            // never a scope a client could legitimately request, and advertising one would invite
+            // exactly that request.
             ScopesSupported = auth.AdvertiseScopes
                 ? auth.ScopesSupported.Where(scope => !string.IsNullOrWhiteSpace(scope)).ToList()
                 : [],
