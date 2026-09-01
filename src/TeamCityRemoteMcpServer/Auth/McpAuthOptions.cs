@@ -30,4 +30,24 @@ public sealed class McpAuthOptions
     public List<string> ScopesSupported { get; set; } = [OAuthScopes.Read];
 
     public int ClockSkewSeconds { get; set; } = 30;
+
+    /// <summary>Whether to bind the token to <see cref="ResourceUri"/> via the `aud` claim, as the
+    /// MCP spec requires. Set false only for an authorization server that cannot mint a
+    /// per-resource audience — an Okta *org* authorization server always stamps `aud` with its own
+    /// issuer, so audience binding is unavailable there at any price. Turning this off without an
+    /// <see cref="AllowedClientIds"/> entry is refused at startup by McpAuthOptionsValidator.</summary>
+    public bool ValidateAudience { get; set; } = true;
+
+    /// <summary>Allowlist of OAuth client ids permitted to call this server, matched against the
+    /// access token's `cid` claim. The documented substitute for audience binding: it does not
+    /// prove the token was minted *for* this resource, only that it was minted for a client we
+    /// recognize. Empty (the default) means no client check — safe only while
+    /// <see cref="ValidateAudience"/> is true, which the startup validator enforces.</summary>
+    public List<string> AllowedClientIds { get; set; } = [];
+
+    /// <summary>Whether a caller's token must carry the <see cref="OAuthScopes.Read"/> scope. Set
+    /// false for an authorization server with no custom-scope capability, where no scope value can
+    /// convey resource-specific authorization and the real authorization decision is made
+    /// downstream by the RBAC gate against the upstream system's own permission model.</summary>
+    public bool RequireScope { get; set; } = true;
 }

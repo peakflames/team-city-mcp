@@ -35,13 +35,23 @@ public static class AuthenticationServiceCollectionExtensions
             .AddJwtBearer()
             .AddMcp(_ => { });
 
+        services.AddSingleton<IAuthorizationHandler, ScopeAuthorizationHandler>();
+        services.AddSingleton<IAuthorizationHandler, ClientIdAuthorizationHandler>();
+
         // Schemes deliberately unpinned here (no AddAuthenticationSchemes call) — pinning
         // "Bearer" would route a 401 to JwtBearer instead of the MCP scheme, and the client would
         // never receive resource_metadata, silently breaking MCP discovery.
+        //
+        // Both requirements are added unconditionally and read McpAuth config from DI when they run,
+        // rather than being included or omitted based on an eager read here — the policy lambda has
+        // no service provider, and an eager read would sidestep ValidateOnStart. At their defaults
+        // (RequireScope true, AllowedClientIds empty) the pair is behaviorally identical to the
+        // former inline scope assertion.
         services.AddAuthorizationBuilder()
             .AddPolicy(OAuthScopes.ReadPolicy, policy => policy
                 .RequireAuthenticatedUser()
-                .RequireAssertion(context => ScopeClaimHelper.HasScope(context.User, OAuthScopes.Read)));
+                .AddRequirements(new ScopeRequirement(OAuthScopes.Read))
+                .AddRequirements(new ClientIdRequirement()));
 
         // Filters tools/list per caller and blocks unauthorized tool calls before task dispatch —
         // Phase 2's RBAC seam.

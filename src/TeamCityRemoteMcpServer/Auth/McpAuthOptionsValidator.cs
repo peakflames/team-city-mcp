@@ -25,6 +25,7 @@ public sealed class McpAuthOptionsValidator : IValidateOptions<McpAuthOptions>
         ValidateResourceUri(options, failures);
         ValidateMetadataAddress(options, isDevelopment, failures);
         ValidateClockSkew(options, failures);
+        ValidateClientBinding(options, failures);
 
         return failures.Count == 0
             ? ValidateOptionsResult.Success
@@ -88,6 +89,35 @@ public sealed class McpAuthOptionsValidator : IValidateOptions<McpAuthOptions>
     {
         if (options.ClockSkewSeconds < 0 || options.ClockSkewSeconds > 300)
             failures.Add("ClockSkewSeconds must be between 0 and 300.");
+    }
+
+    /// <summary>
+    /// The one combination that must never boot: audience binding off *and* no client allowlist.
+    /// That pair accepts any token the authorization server issued to any client in the org for any
+    /// purpose — no issuer-level check distinguishes a token minted for this MCP server from one
+    /// minted for an unrelated internal app. Enforced here rather than per-request so the failure is
+    /// a refused startup, not a server that reports healthy while accepting foreign tokens.
+    /// </summary>
+    private static void ValidateClientBinding(McpAuthOptions options, List<string> failures)
+    {
+        var allowed = options.AllowedClientIds;
+
+        if (!options.ValidateAudience && (allowed is null || allowed.Count == 0))
+        {
+            failures.Add(
+                "AllowedClientIds must contain at least one client id when ValidateAudience is false — " +
+                "disabling audience binding with no client allowlist would accept any token the " +
+                "authorization server issued to any client.");
+        }
+
+        if (allowed is null)
+            return;
+
+        for (var i = 0; i < allowed.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(allowed[i]))
+                failures.Add($"AllowedClientIds[{i}] must not be blank.");
+        }
     }
 
     private static bool TryParseAbsoluteUri(string value, out Uri uri)

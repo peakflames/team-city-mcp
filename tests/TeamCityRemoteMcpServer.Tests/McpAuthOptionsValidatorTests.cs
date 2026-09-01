@@ -101,6 +101,57 @@ public class McpAuthOptionsValidatorTests
         Assert.False(result.Succeeded);
     }
 
+    [Fact]
+    public void Validate_Rejects_AudienceValidationOff_WithNoClientAllowlist()
+    {
+        var validator = CreateValidator(isDevelopment: false);
+        var options = ValidOptions();
+        options.ValidateAudience = false;
+
+        var result = validator.Validate(null, options);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("AllowedClientIds", string.Join(" ", result.Failures!), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Validate_Allows_AudienceValidationOff_WithAClientAllowlist()
+    {
+        var validator = CreateValidator(isDevelopment: false);
+        var options = ValidOptions();
+        options.ValidateAudience = false;
+        options.AllowedClientIds = ["0oaSomeOktaClientId"];
+
+        var result = validator.Validate(null, options);
+
+        Assert.True(result.Succeeded);
+    }
+
+    [Fact]
+    public void Validate_Allows_EmptyClientAllowlist_WhenAudienceValidationIsOn()
+    {
+        // The default shape. A client allowlist is only load-bearing as a substitute for audience
+        // binding, so requiring one here would break every existing deployment.
+        var validator = CreateValidator(isDevelopment: false);
+
+        var result = validator.Validate(null, ValidOptions());
+
+        Assert.True(result.Succeeded);
+    }
+
+    [Fact]
+    public void Validate_Rejects_BlankClientId()
+    {
+        var validator = CreateValidator(isDevelopment: false);
+        var options = ValidOptions();
+        options.AllowedClientIds = ["0oaFine", "  "];
+
+        var result = validator.Validate(null, options);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("AllowedClientIds[1]", string.Join(" ", result.Failures!), StringComparison.Ordinal);
+    }
+
     private sealed class FakeHostEnvironment : IHostEnvironment
     {
         public FakeHostEnvironment(bool isDevelopment)

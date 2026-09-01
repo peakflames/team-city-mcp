@@ -13,11 +13,12 @@ public static class TestTokenFactory
         string subject = "test-subject",
         DateTime? notBefore = null,
         DateTime? expires = null,
-        string? email = null)
+        string? email = null,
+        string? clientId = null)
     {
         var securityKey = new RsaSecurityKey(signingKey) { KeyId = kid };
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.RsaSha256);
-        return CreateToken(issuer, audience, scopes, subject, notBefore, expires, credentials, email);
+        return CreateToken(issuer, audience, scopes, subject, notBefore, expires, credentials, email, clientId);
     }
 
     /// <summary>Signs with HMAC using the RSA key's own public modulus as the HMAC secret — the
@@ -50,7 +51,8 @@ public static class TestTokenFactory
         DateTime? notBefore,
         DateTime? expires,
         SigningCredentials? signingCredentials,
-        string? email = null)
+        string? email = null,
+        string? clientId = null)
     {
         var now = DateTime.UtcNow;
         var claims = new List<Claim>
@@ -60,6 +62,8 @@ public static class TestTokenFactory
         };
         if (email is not null)
             claims.Add(new Claim("email", email));
+        if (clientId is not null)
+            claims.Add(new Claim(ClientIdRequirement.ClaimType, clientId));
 
         var descriptor = new SecurityTokenDescriptor
         {

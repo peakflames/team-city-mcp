@@ -26,15 +26,46 @@ public sealed class McpAuthTestConfigBuilder : IDisposable
     }
 
     /// <summary>Mints a token signed with this stub AS's own key/kid — the only combination its
-    /// JWKS endpoint publishes, so this is the one signing key a token can use and still validate.</summary>
-    public string CreateAccessToken(IEnumerable<string> scopes, string? email = null, string subject = "test-subject") =>
-        TestTokenFactory.CreateAccessToken(SigningKey.Rsa, SigningKey.KeyId, Issuer, ResourceUri, scopes, subject, email: email);
+    /// JWKS endpoint publishes, so this is the one signing key a token can use and still validate.
+    /// <paramref name="audience"/> overrides the resource URI, for testing what
+    /// <c>McpAuth:ValidateAudience=false</c> actually stops checking.</summary>
+    public string CreateAccessToken(
+        IEnumerable<string> scopes,
+        string? email = null,
+        string subject = "test-subject",
+        string? clientId = null,
+        string? audience = null) =>
+        TestTokenFactory.CreateAccessToken(
+            SigningKey.Rsa,
+            SigningKey.KeyId,
+            Issuer,
+            audience ?? ResourceUri,
+            scopes,
+            subject,
+            email: email,
+            clientId: clientId);
 
     public McpServerFactory Apply(McpServerFactory factory) => factory
         .WithEnvironment(Environments.Development)
         .With("McpAuth:Enabled", "true")
         .With("McpAuth:Issuer", Issuer)
         .With("McpAuth:ResourceUri", ResourceUri);
+
+    /// <summary>The org-authorization-server shape from the feasibility study: no audience binding,
+    /// a `cid` allowlist standing in for it, and no scope requirement.</summary>
+    public McpServerFactory ApplyOrgAuthorizationServerShape(
+        McpServerFactory factory,
+        params string[] allowedClientIds)
+    {
+        Apply(factory)
+            .With("McpAuth:ValidateAudience", "false")
+            .With("McpAuth:RequireScope", "false");
+
+        for (var i = 0; i < allowedClientIds.Length; i++)
+            factory.With($"McpAuth:AllowedClientIds:{i}", allowedClientIds[i]);
+
+        return factory;
+    }
 
     public void Dispose()
     {

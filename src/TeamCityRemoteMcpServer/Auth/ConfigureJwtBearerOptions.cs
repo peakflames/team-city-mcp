@@ -53,7 +53,12 @@ public sealed class ConfigureJwtBearerOptions : IConfigureNamedOptions<JwtBearer
 
         var tvp = options.TokenValidationParameters;
         tvp.ValidateIssuer = true;
-        tvp.ValidateAudience = true;
+
+        // The only relaxation this class permits, and only when explicitly configured: an Okta
+        // *org* authorization server stamps `aud` with its own issuer and offers no way to set a
+        // per-resource audience. ClientIdRequirement then carries the binding instead, and
+        // McpAuthOptionsValidator refuses to boot if that substitute is missing.
+        tvp.ValidateAudience = auth.ValidateAudience;
         tvp.ValidateLifetime = true;
         tvp.ValidateIssuerSigningKey = true;
         tvp.ValidIssuer = auth.Issuer;

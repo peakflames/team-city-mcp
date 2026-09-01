@@ -22,6 +22,7 @@ public static class TokenEndpoint
         var subject = FirstNonEmpty(form["sub"].ToString(), state.DefaultSubject);
         var scope = FirstNonEmpty(form["scope"].ToString(), state.DefaultScope);
         var email = form["email"].ToString();
+        var clientId = form["cid"].ToString();
         var lifetimeSeconds = int.TryParse(form["exp_seconds"].ToString(), out var overrideSeconds)
             ? overrideSeconds
             : state.DefaultLifetimeSeconds;
@@ -43,6 +44,14 @@ public static class TokenEndpoint
         if (!string.IsNullOrEmpty(email))
         {
             claims["email"] = email;
+        }
+
+        // Same opt-in shape as `email` above, for ClientIdRequirement testing. An Okta org
+        // authorization server always emits `cid`; omitting it here by default keeps every existing
+        // token shape byte-identical and lets a test assert the missing-claim denial path.
+        if (!string.IsNullOrEmpty(clientId))
+        {
+            claims["cid"] = clientId;
         }
 
         var signingKey = state.SignWithWrongKey ? RSA.Create(2048) : SigningKey.Rsa;
