@@ -29,6 +29,20 @@ public sealed class McpAuthOptions
 
     public List<string> ScopesSupported { get; set; } = [OAuthScopes.Read];
 
+    /// <summary>
+    /// Whether to advertise <see cref="ScopesSupported"/> in the RFC 9728 protected-resource
+    /// metadata at all. Set false for an authorization server with no custom-scope capability:
+    /// advertising <c>teamcity:read</c> there makes a conforming client request a scope the
+    /// authorization server will refuse, failing the whole authorization request.
+    ///
+    /// This is a separate key rather than "configure an empty list" because an empty list is not
+    /// expressible through configuration. <c>ConfigurationBinder</c> *appends* to an existing
+    /// <c>List&lt;T&gt;</c>, so <see cref="ScopesSupported"/> can only ever grow beyond its default —
+    /// measured, not assumed: binding <c>McpAuth:ScopesSupported:0=zzz</c> yields
+    /// <c>[teamcity:read, zzz]</c>.
+    /// </summary>
+    public bool AdvertiseScopes { get; set; } = true;
+
     public int ClockSkewSeconds { get; set; } = 30;
 
     /// <summary>Whether to bind the token to <see cref="ResourceUri"/> via the `aud` claim, as the

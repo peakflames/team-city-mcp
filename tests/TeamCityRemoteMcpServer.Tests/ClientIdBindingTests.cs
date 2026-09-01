@@ -214,7 +214,43 @@ public class ClientIdBindingTests : IDisposable
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    // ---------------------------------------------------------------- advertised scopes
+
+    [Fact]
+    public async Task AdvertiseScopesFalse_PublishesAnEmptyScopesSupported()
+    {
+        var factory = NewFactory();
+        _mcpAuth.ApplyOrgAuthorizationServerShape(factory, AllowedClientId)
+            .With("McpAuth:AdvertiseScopes", "false");
+
+        var body = await GetResourceMetadataAsync(factory);
+
+        Assert.Empty(body.GetProperty("scopes_supported").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task DefaultShape_StillAdvertisesTheReadScope()
+    {
+        var factory = NewFactory();
+        _mcpAuth.Apply(factory);
+
+        var body = await GetResourceMetadataAsync(factory);
+
+        var scopes = body.GetProperty("scopes_supported").EnumerateArray().Select(e => e.GetString()).ToArray();
+        Assert.Contains(OAuthScopes.Read, scopes);
+    }
+
     // ----------------------------------------------------------------
+
+    private static async Task<JsonElement> GetResourceMetadataAsync(McpServerFactory factory)
+    {
+        var client = factory.CreateClient();
+        var response = await client.GetAsync("/.well-known/oauth-protected-resource/mcp");
+
+        Assert.True(response.IsSuccessStatusCode, $"got {(int)response.StatusCode}");
+
+        return JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+    }
 
     private static async Task<HttpResponseMessage> SendToolsListAsync(McpServerFactory factory, string bearerToken)
     {
