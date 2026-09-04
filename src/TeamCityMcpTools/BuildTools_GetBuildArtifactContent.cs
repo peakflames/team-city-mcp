@@ -5,7 +5,7 @@ public partial class BuildTools
     private const int ArtifactContentMaxBytes = 40_000;
     private const int ArtifactContentMaxLines = 500;
 
-    [McpServerTool(Name = "teamcity_get_build_artifact_content"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildArtifactContent),
         Description(
             "Gets the text content of a single build artifact file (e.g. a log, report, or settings " +
             "digest). Refuses binary files and truncates large text files to the first "
@@ -17,6 +17,13 @@ public partial class BuildTools
         [Description("The artifact path relative to the artifact root (e.g. '.teamcity/settings-digest.txt' or 'reports/summary.log').")]
         string path)
     {
+        if (!TeamCityLocator.IsNumericId(buildId))
+            return $"ERROR: Invalid buildId '{buildId}' — must be numeric.";
+
+        var segments = path.TrimStart('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0 || segments.Any(s => s == ".."))
+            return $"ERROR: Invalid artifact path '{path}' — path traversal is not allowed.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -27,7 +34,8 @@ public partial class BuildTools
 
         try
         {
-            var url = $"app/rest/builds/id:{buildId}/artifacts/content/{path.TrimStart('/')}";
+            var escapedPath = string.Join('/', segments.Select(Uri.EscapeDataString));
+            var url = $"app/rest/builds/id:{Uri.EscapeDataString(buildId)}/artifacts/content/{escapedPath}";
 
             var response = await client.HttpClient.GetAsync(url);
 

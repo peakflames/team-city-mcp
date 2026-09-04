@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_list_builds"),
+    [McpServerTool(Name = TeamCityToolNames.ListBuilds),
         Description(
             "Lists recent builds for a TeamCity build type, with optional filters for project, " +
             "branch, status, state, and count. Returns a markdown table with columns: ID, Number, Status, Branch, Started, Finished, URL.")]
@@ -25,6 +25,11 @@ public partial class BuildTools
         [Description("Maximum number of builds to return. Defaults to 10.")]
         int count = 10)
     {
+        if (!TeamCityLocator.IsSafeId(buildTypeId))
+            return $"ERROR: Invalid buildTypeId '{buildTypeId}'.";
+        if (!string.IsNullOrWhiteSpace(projectId) && !TeamCityLocator.IsSafeId(projectId))
+            return $"ERROR: Invalid projectId '{projectId}'.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -37,16 +42,16 @@ public partial class BuildTools
         {
             var locatorParts = new List<string>
             {
-                $"buildType:id:{buildTypeId}",
+                $"buildType:(id:{buildTypeId})",
                 $"count:{count}",
-                $"state:{(string.IsNullOrWhiteSpace(state) ? "finished" : state.ToLowerInvariant())}"
+                TeamCityLocator.Dimension("state", string.IsNullOrWhiteSpace(state) ? "finished" : state.ToLowerInvariant())
             };
             if (!string.IsNullOrWhiteSpace(projectId))
-                locatorParts.Add($"project:id:{projectId}");
+                locatorParts.Add($"project:(id:{projectId})");
             if (!string.IsNullOrWhiteSpace(branch))
-                locatorParts.Add($"branch:{branch}");
+                locatorParts.Add(TeamCityLocator.Dimension("branch", branch));
             if (!string.IsNullOrWhiteSpace(status))
-                locatorParts.Add($"status:{status.ToUpperInvariant()}");
+                locatorParts.Add(TeamCityLocator.Dimension("status", status.ToUpperInvariant()));
 
             var locator = string.Join(",", locatorParts);
             var fields = "build(id,number,status,state,branchName,startDate,finishDate,webUrl)";

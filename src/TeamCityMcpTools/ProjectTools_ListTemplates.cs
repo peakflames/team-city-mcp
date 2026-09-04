@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_list_templates"),
+    [McpServerTool(Name = TeamCityToolNames.ListTemplates),
         Description(
             "Lists TeamCity build templates. Optionally scoped to a specific project. A template is a build type " +
             "with templateFlag set — use 'teamcity_get_build_type' with a template's ID to see its full detail " +

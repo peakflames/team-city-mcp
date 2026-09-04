@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_running_builds"),
+    [McpServerTool(Name = TeamCityToolNames.GetRunningBuilds),
         Description(
             "Gets all currently running builds, optionally filtered by project. " +
             "Returns a markdown table with columns: ID, Number, Build Type, Project, Branch, Agent, Started, Progress%, URL.")]
@@ -10,6 +10,9 @@ public partial class BuildTools
         [Description("Optional project ID to filter running builds by project.")]
         string? projectId = null)
     {
+        if (!string.IsNullOrWhiteSpace(projectId) && !TeamCityLocator.IsSafeId(projectId))
+            return $"ERROR: Invalid projectId '{projectId}'.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -22,7 +25,7 @@ public partial class BuildTools
         {
             var locatorParts = new List<string> { "state:running" };
             if (!string.IsNullOrWhiteSpace(projectId))
-                locatorParts.Add($"project:id:{projectId}");
+                locatorParts.Add($"project:(id:{projectId})");
 
             var locator = string.Join(",", locatorParts);
             var fields = "build(id,number,status,branchName,startDate,percentageComplete,agent(name),buildType(name,projectName),webUrl)";

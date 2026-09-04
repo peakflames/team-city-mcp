@@ -1,0 +1,50 @@
+namespace TeamCityRemoteMcpServer.Auth;
+
+/// <summary>
+/// ResourceMetadataUri is deliberately left untouched (default null) so the SDK auto-serves
+/// /.well-known/oauth-protected-resource[/mcp] itself rather than us hand-rolling that endpoint.
+/// jwks_uri is intentionally omitted from ResourceMetadata — RFC 9728's jwks_uri means
+/// resource-response signing, not token signing, and it MUST be https, which would break
+/// localhost dev.
+///
+/// Implements IConfigureNamedOptions, not plain IConfigureOptions — see ConfigureJwtBearerOptions
+/// for why: a plain IConfigureOptions&lt;T&gt; is only invoked for the default-named ("") options
+/// instance, and the Mcp scheme's options are requested under its own scheme name.
+/// </summary>
+public sealed class ConfigureMcpAuthenticationOptions : IConfigureNamedOptions<McpAuthenticationOptions>
+{
+    private readonly IOptions<McpAuthOptions> _authOptions;
+
+    public ConfigureMcpAuthenticationOptions(IOptions<McpAuthOptions> authOptions)
+    {
+        _authOptions = authOptions;
+    }
+
+    public void Configure(string? name, McpAuthenticationOptions options)
+    {
+        if (!string.Equals(name, McpAuthenticationDefaults.AuthenticationScheme, StringComparison.Ordinal))
+            return;
+
+        Configure(options);
+    }
+
+    public void Configure(McpAuthenticationOptions options)
+    {
+        var auth = _authOptions.Value;
+
+        options.ResourceMetadata = new ProtectedResourceMetadata
+        {
+            Resource = auth.ResourceUri,
+            AuthorizationServers = new List<string> { auth.Issuer },
+            BearerMethodsSupported = new List<string> { "header" },
+            // AdvertiseScopes=false publishes an empty list. The configured scopes themselves get
+            // replace-not-append semantics upstream in ReplaceConfiguredScopesSupported. Blank
+            // entries are dropped at both layers: RFC 6749's scope-token is 1*NQCHAR, so a blank is
+            // never a scope a client could legitimately request, and advertising one would invite
+            // exactly that request.
+            ScopesSupported = auth.AdvertiseScopes
+                ? auth.ScopesSupported.Where(scope => !string.IsNullOrWhiteSpace(scope)).ToList()
+                : [],
+        };
+    }
+}

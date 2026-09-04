@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_queued_builds"),
+    [McpServerTool(Name = TeamCityToolNames.GetQueuedBuilds),
         Description(
             "Gets all builds currently waiting in the build queue, optionally filtered by project. " +
             "Returns a markdown table with columns: ID, Build Type, Project, Branch, Triggered By, Wait Reason, URL.")]
@@ -10,6 +10,9 @@ public partial class BuildTools
         [Description("Optional project ID to filter queued builds by project.")]
         string? projectId = null)
     {
+        if (!string.IsNullOrWhiteSpace(projectId) && !TeamCityLocator.IsSafeId(projectId))
+            return $"ERROR: Invalid projectId '{projectId}'.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -24,7 +27,7 @@ public partial class BuildTools
             string url;
             if (!string.IsNullOrWhiteSpace(projectId))
             {
-                var locator = $"project:id:{projectId}";
+                var locator = $"project:(id:{projectId})";
                 url = $"app/rest/buildQueue?locator={Uri.EscapeDataString(locator)}&fields={Uri.EscapeDataString(fields)}";
             }
             else

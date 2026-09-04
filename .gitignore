@@ -488,3 +488,12 @@ dist/
 tmp/
 .server.pid
 *.log
+
+# Local credentials — never commit a filled-in appsettings for the remote server
+src/TeamCityRemoteMcpServer/appsettings*.json
+!src/TeamCityRemoteMcpServer/appsettings.json
+!src/TeamCityRemoteMcpServer/appsettings.Development.json
+
+# Local MCP client config — carries a real client_id and issuer for local testing
+.mcp.json
+*secrets.env

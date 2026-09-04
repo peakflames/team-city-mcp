@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build_dependency_tree"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildDependencyTree),
         Description(
             "Walks a build's actual dependency chain — both snapshot and artifact dependencies — and " +
             "renders an indented markdown tree (default) or a Mermaid graph (format:'mermaid'), with per-node " +
@@ -46,7 +46,7 @@ public partial class BuildTools
         try
         {
             var rootFields = "id,number,status,state,buildTypeId,buildType(id,name)";
-            var rootUrl = $"app/rest/builds/id:{buildId}?fields={Uri.EscapeDataString(rootFields)}";
+            var rootUrl = $"app/rest/builds/id:{Uri.EscapeDataString(buildId)}?fields={Uri.EscapeDataString(rootFields)}";
             var rootResponse = await client.HttpClient.GetAsync(rootUrl);
 
             if (rootResponse.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -62,11 +62,13 @@ public partial class BuildTools
             if (root is null)
                 return $"ERROR: Unable to parse build details for ID '{buildId}'.";
 
-            var rootNode = new DependencyGraphNode(root.Id, root.BuildType?.Name ?? root.BuildTypeId, root.Number, root.Status, root.State);
+            var rootNode = new DependencyGraphNode(root.Id, root.BuildType?.Name ?? root.BuildTypeId, root.Number, root.Status, root.State, root.BuildType?.ProjectId);
 
             var items = new List<DependencyGraphItem>();
             var visited = new HashSet<int> { root.Id };
             await CollectDependencyChildren(client, items, root.Id, 1, depth, up, visited);
+
+            items = await PruneInvisibleNodesAsync(_serviceProvider, items);
 
             return mermaid
                 ? RenderDependencyMermaid(rootNode, items, up, depth)
@@ -189,7 +191,7 @@ public partial class BuildTools
         if (up)
         {
             var directionLocator = $"snapshotDependency:(from:(id:{nodeId}),recursive:false)";
-            var dependentsFields = "build(id,number,status,state,buildTypeId,buildType(id,name))";
+            var dependentsFields = "build(id,number,status,state,buildTypeId,buildType(id,name,projectId))";
             var dependentsUrl = $"app/rest/builds?locator={Uri.EscapeDataString(directionLocator)}&fields={Uri.EscapeDataString(dependentsFields)}";
 
             var dependentsResponse = await client.HttpClient.GetAsync(dependentsUrl);
@@ -209,7 +211,7 @@ public partial class BuildTools
             foreach (var node in dependentsList.Build)
             {
                 var cyclic = visited.Contains(node.Id);
-                var graphNode = new DependencyGraphNode(node.Id, node.BuildType?.Name ?? node.BuildTypeId, node.Number, node.Status, node.State);
+                var graphNode = new DependencyGraphNode(node.Id, node.BuildType?.Name ?? node.BuildTypeId, node.Number, node.Status, node.State, node.BuildType?.ProjectId);
                 items.Add(new DependencyGraphNodeItem(nodeId, graphNode, currentDepth, "snapshot", cyclic));
 
                 if (cyclic)
@@ -222,7 +224,7 @@ public partial class BuildTools
             return;
         }
 
-        var fields = "snapshot-dependencies(build(id,number,status,state,buildTypeId,buildType(id,name))),artifact-dependencies(build(id,number,status,state,buildTypeId,buildType(id,name)))";
+        var fields = "snapshot-dependencies(build(id,number,status,state,buildTypeId,buildType(id,name,projectId))),artifact-dependencies(build(id,number,status,state,buildTypeId,buildType(id,name,projectId)))";
         var url = $"app/rest/builds/id:{nodeId}?fields={Uri.EscapeDataString(fields)}";
 
         var response = await client.HttpClient.GetAsync(url);
@@ -259,7 +261,7 @@ public partial class BuildTools
         {
             var cyclic = visited.Contains(node.Id);
             var kind = isSnapshot && isArtifact ? "snapshot+artifact" : isSnapshot ? "snapshot" : "artifact";
-            var graphNode = new DependencyGraphNode(node.Id, node.BuildType?.Name ?? node.BuildTypeId, node.Number, node.Status, node.State);
+            var graphNode = new DependencyGraphNode(node.Id, node.BuildType?.Name ?? node.BuildTypeId, node.Number, node.Status, node.State, node.BuildType?.ProjectId);
             items.Add(new DependencyGraphNodeItem(nodeId, graphNode, currentDepth, kind, cyclic));
 
             if (cyclic)
@@ -293,7 +295,49 @@ public partial class BuildTools
         };
     }
 
-    private sealed record DependencyGraphNode(int Id, string? Name, string? Number, string? Status, string? State);
+    /// <summary>G5: discovered nodes whose own <paramref name="visibleProjectIds"/> membership fails
+    /// are pruned along with every edge touching them, per the locked "pruning, not re-rooting"
+    /// decision for fan-out graphs (distinct from teamcity_get_project_hierarchy's re-rooting).
+    /// A node reached only through a pruned node still loses its own item entry — that entry doubles
+    /// as its inbound edge — but survives disconnected if some other surviving edge also targets it;
+    /// its own descendants, reached via edges whose FromId is this node, are unaffected by this rule
+    /// unless their own project is separately invisible.</summary>
+    private static async Task<List<DependencyGraphItem>> PruneInvisibleNodesAsync(
+        IServiceProvider serviceProvider, List<DependencyGraphItem> items)
+    {
+        var discoveredProjectIds = items
+            .OfType<DependencyGraphNodeItem>()
+            .Select(i => i.Node.ProjectId)
+            .Where(id => id is not null)
+            .Select(id => id!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (discoveredProjectIds.Length == 0)
+            return items;
+
+        var visibleProjectIds = await ToolGate.FilterVisibleProjectIdsAsync(
+            serviceProvider, TeamCityToolNames.GetBuildDependencyTree, discoveredProjectIds);
+
+        if (visibleProjectIds is null)
+            return items;
+
+        var invisibleNodeIds = items
+            .OfType<DependencyGraphNodeItem>()
+            .Where(i => i.Node.ProjectId is null || !visibleProjectIds.Contains(i.Node.ProjectId))
+            .Select(i => i.Node.Id)
+            .ToHashSet();
+
+        if (invisibleNodeIds.Count == 0)
+            return items;
+
+        return items
+            .Where(item => item is not DependencyGraphNodeItem n ||
+                            (!invisibleNodeIds.Contains(n.Node.Id) && !invisibleNodeIds.Contains(n.FromId)))
+            .ToList();
+    }
+
+    private sealed record DependencyGraphNode(int Id, string? Name, string? Number, string? Status, string? State, string? ProjectId);
 
     private abstract record DependencyGraphItem;
 

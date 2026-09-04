@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_list_vcs_roots"),
+    [McpServerTool(Name = TeamCityToolNames.ListVcsRoots),
         Description(
             "Lists TeamCity VCS roots (id and name only). Optionally scoped to a specific project. " +
             "Use 'teamcity_get_vcs_root' for full connection details on a single root. " +
@@ -17,6 +17,9 @@ public partial class ProjectTools
         [Description("Maximum number of matching VCS roots to display. Defaults to 100.")]
         int count = 100)
     {
+        if (!string.IsNullOrWhiteSpace(projectId) && !TeamCityLocator.IsSafeId(projectId))
+            return $"ERROR: Invalid projectId '{projectId}'.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();

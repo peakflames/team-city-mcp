@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_build_type_features"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildTypeFeatures),
         Description(
             "Gets the build features configured on a TeamCity build configuration — this is where the Matrix Build " +
             "feature (type `matrix`) lives, along with things like build failure conditions, swabra, notifications, " +

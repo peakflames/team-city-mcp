@@ -1,6 +1,8 @@
 using TeamCityMcpTools;
+using TeamCityMcpTools.Rbac;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Net.Http.Headers;
 using Serilog;
 
 namespace TeamCityMcpServer;
@@ -60,8 +62,18 @@ public class Program
 
             var builder = Host.CreateApplicationBuilder(args);
             builder.Services.AddSerilog();
+            // Permanently no-op — the stdio host has no HTTP identity to resolve, so there is
+            // nothing for a permission gate to check.
+            builder.Services.AddSingleton<IPermissionGate, NoOpPermissionGate>();
+            builder.Services.AddSingleton<IRbacToolCallContext, NoOpRbacToolCallContext>();
             builder.Services.AddSingleton(new TeamCityConfig(serverUrl!, accessToken!));
-            builder.Services.AddScoped<ITeamCityClientFactory, TeamCityClientFactory>();
+            builder.Services.AddHttpClient<ITeamCityClientFactory, TeamCityClientFactory>((sp, client) =>
+            {
+                var config = sp.GetRequiredService<TeamCityConfig>();
+                client.BaseAddress = new Uri(config.ServerUrl.TrimEnd('/') + "/");
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config.AccessToken);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            });
 
             builder.Services
                 .AddMcpServer()

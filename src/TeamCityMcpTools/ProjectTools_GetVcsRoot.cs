@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_vcs_root"),
+    [McpServerTool(Name = TeamCityToolNames.GetVcsRoot),
         Description(
             "Gets full connection details for a specific TeamCity VCS root — repository URL, branch spec, " +
             "authentication method, and other VCS-type-specific settings. Secure properties (e.g. passwords) " +
@@ -22,7 +22,7 @@ public partial class ProjectTools
         try
         {
             var fields = "id,name,vcsName,project(id,name),properties(property(name,value))";
-            var url = $"app/rest/vcs-roots/id:{vcsRootId}?fields={Uri.EscapeDataString(fields)}";
+            var url = $"app/rest/vcs-roots/id:{Uri.EscapeDataString(vcsRootId)}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
 

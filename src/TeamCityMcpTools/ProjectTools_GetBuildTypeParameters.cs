@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_build_type_parameters"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildTypeParameters),
         Description(
             "Gets the configuration parameters defined on a TeamCity build configuration (not a specific build) — " +
             "the same values shown in the TeamCity 'Parameters' admin page. Each parameter shows whether it is " +
@@ -34,7 +34,7 @@ public partial class ProjectTools
         try
         {
             var fields = "count,property(name,value,inherited,type(rawValue))";
-            var url = $"app/rest/buildTypes/id:{buildTypeId}/parameters?fields={Uri.EscapeDataString(fields)}";
+            var url = $"app/rest/buildTypes/id:{Uri.EscapeDataString(buildTypeId)}/parameters?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
 
