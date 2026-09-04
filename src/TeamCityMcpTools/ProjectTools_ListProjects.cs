@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_list_projects"),
+    [McpServerTool(Name = TeamCityToolNames.ListProjects),
         Description(
             "Lists projects in the TeamCity instance with their parent project relationships. " +
             "Optional 'nameFilter' matches a case-insensitive regex against the project Name only, and optional " +
@@ -49,6 +49,24 @@ public partial class ProjectTools
             if (projects is null || projects.Count == 0)
                 return "No projects found.";
 
+            // Resolved directly (not via ToolGate.FilterByVisibleSetAsync) because the parent-id
+            // leak fix below needs the raw VisibleProjectSet, not just a filtered list.
+            var gate = scope.ServiceProvider.GetRequiredService<IPermissionGate>();
+            var callContext = scope.ServiceProvider.GetRequiredService<IRbacToolCallContext>();
+            VisibleProjectSet? visibleSet = null;
+
+            if (gate.Enabled && callContext.CurrentIdentity is { } identity)
+            {
+                visibleSet = await gate.GetVisibleProjectSetAsync(TeamCityToolNames.ListProjects, identity);
+                if (!visibleSet.IsGlobal)
+                {
+                    var visibleCount = projects.Count(p => visibleSet.Contains(p.Id));
+                    if (visibleCount < projects.Count)
+                        callContext.ReportFilteredOut(projects.Count - visibleCount);
+                    projects = projects.Where(p => visibleSet.Contains(p.Id)).ToList();
+                }
+            }
+
             var nameRx = TeamCityFormat.CompileFilter(nameFilter);
             if (nameRx.IsFailed) return $"ERROR: Invalid nameFilter regex — {nameRx.Errors.First().Message}";
             var idRx = TeamCityFormat.CompileFilter(idFilter);
@@ -83,7 +101,13 @@ public partial class ProjectTools
             foreach (var project in displayed)
             {
                 var desc = string.IsNullOrWhiteSpace(project.Description) ? "—" : project.Description;
-                sb.AppendLine($"| {project.Id} | {project.Name} | {project.ParentProjectId ?? "—"} | {desc} |");
+
+                // A parent id is real data too — never render one the caller can't see, even though
+                // the child itself is visible (a role can grant view_project directly on a child).
+                var parentVisible = visibleSet is null || visibleSet.Contains(project.ParentProjectId);
+                var parentId = parentVisible ? project.ParentProjectId ?? "—" : "—";
+
+                sb.AppendLine($"| {project.Id} | {project.Name} | {parentId} | {desc} |");
             }
 
             if (ordered.Count > displayed.Count)

@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuild),
         Description(
             "Gets comprehensive details for a specific TeamCity build, including status, agent, " +
             "VCS revisions, build problems, and whether the build is composite (a matrix/build-chain build whose " +
@@ -28,7 +28,7 @@ public partial class BuildTools
                          "triggered(user(name),date,type)," +
                          "revisions(revision(version,vcsBranchName,vcs-root-instance(id,vcs-root-id,name,vcsName)))," +
                          "problemOccurrences(count,problemOccurrence(type,details))";
-            var url = $"app/rest/builds/id:{buildId}?fields={Uri.EscapeDataString(fields)}";
+            var url = $"app/rest/builds/id:{Uri.EscapeDataString(buildId)}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
 

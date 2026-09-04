@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- OAuth 2.1 bearer-token authentication for `TeamCityRemoteMcpServer`, disabled by default
+  (`McpAuth:Enabled`, default `false` — behavior is unchanged when unset)
+- `McpAuth:Issuer` config to point the server at an external authorization server; the server
+  validates tokens against it and publishes protected-resource metadata at
+  `/.well-known/oauth-protected-resource/mcp` so MCP clients can discover where to authenticate
+- Per-caller RBAC (`Rbac:Enabled`, default `false`), authorizing each tool call against the
+  calling user's own TeamCity permissions instead of the server's access token. Requires
+  `McpAuth:Enabled=true`
+- `Rbac:AuditOnly` mode to log what would be denied without blocking anything, for staged rollout
+- An access-audit record per tool call — caller, tool, and authorization decision — when RBAC is on
+- `McpAuth:ValidateAudience`, default `true`, to relax audience binding for an authorization server
+  that cannot mint a per-resource `aud`. Requires at least one `McpAuth:AllowedClientIds` entry,
+  enforced at startup
+- `McpAuth:AllowedClientIds`, default empty, to allowlist the OAuth client ids permitted to call
+  this server, matched against the access token's `cid` claim
+- `McpAuth:RequireScope`, default `true`, to drop the `teamcity:read` scope assertion for an
+  authorization server with no custom-scope capability
+- `McpAuth:AdvertiseScopes`, default `true`, to publish an empty `scopes_supported` in the
+  protected-resource metadata for deployments where every client pins its own scopes locally
+- `Rbac:IdentitySource` (`Claim`, the default, or `UserInfo`) to resolve the caller's email from
+  the authorization server's OIDC `/userinfo` endpoint when its access tokens carry no email claim
+- RBAC enforcement for every build-, build-configuration-, and VCS-root-scoped tool, resolving the
+  named resource to its owning project and checking the caller's `view_project` there
+- Visible-project filtering for `teamcity_list_projects`, `teamcity_get_project_hierarchy`,
+  `teamcity_search_builds`, `teamcity_get_test_history`, and `teamcity_list_mutes` — results are
+  narrowed to the caller's projects rather than the whole call being allowed or denied
+- [docs/authentication.md](docs/authentication.md) and [docs/rbac.md](docs/rbac.md), covering both
+  config sections and their deployment modes
+
+### Changed
+- MCP SDK upgraded to 2.1.0; the HTTP transport now runs in stateless mode
+- Tool calls are faster — the TeamCity client reuses pooled connections and no longer makes a
+  preflight server check on every call
+- `McpAuth:ScopesSupported` now replaces the default rather than appending to it — a configured
+  list is advertised verbatim, where previously `teamcity:read` remained in the advertised set
+- `teamcity_get_audit_log` requires the caller's global `view_audit_log` permission when RBAC is
+  on, on every call including one scoped to a project
+
+### Removed
+- **BREAKING:** the `/sse` and `/message` SSE endpoints and the root `/` mount are gone. `/mcp`
+  (Streamable HTTP) is the only endpoint — update any client still pointed at the old URLs
+
 ## [0.3.0] - 2026-07-21
 
 ### Added
@@ -80,3 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker support with built-in .NET SDK container capabilities
 - GitHub Actions workflow for automated Docker Hub publishing on version tag push
 - Environment variable support for secure credential management
+
+[Unreleased]: https://github.com/peakflames/team-city-mcp/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/peakflames/team-city-mcp/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/peakflames/team-city-mcp/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/peakflames/team-city-mcp/releases/tag/v0.1.0

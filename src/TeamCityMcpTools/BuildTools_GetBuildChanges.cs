@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build_changes"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildChanges),
         Description(
             "Gets the VCS changes (commits) included in a build, with author, comment, and changed " +
             "files — useful for finding what code change triggered or is included in a build.")]
@@ -10,6 +10,9 @@ public partial class BuildTools
         [Description("The TeamCity build ID (numeric).")]
         string buildId)
     {
+        if (!TeamCityLocator.IsNumericId(buildId))
+            return $"ERROR: Invalid buildId '{buildId}' — must be numeric.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -43,7 +46,7 @@ public partial class BuildTools
             sb.AppendLine("# Build Changes");
             sb.AppendLine();
             sb.AppendLine($"**Build ID:** {buildId}");
-            sb.AppendLine($"**Count:** {changes.Count ?? 0}");
+            sb.AppendLine($"**Count:** {changes.Change?.Count ?? 0}");
             sb.AppendLine();
 
             if (changes.Change is not { Count: > 0 } changeList)

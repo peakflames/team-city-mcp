@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_list_build_types"),
+    [McpServerTool(Name = TeamCityToolNames.ListBuildTypes),
         Description(
             "Lists TeamCity build configurations (build types). Optionally scoped to a specific project. " +
             "Optional 'nameFilter' matches a case-insensitive regex against the build type Name only, and optional " +

@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_list_build_artifacts"),
+    [McpServerTool(Name = TeamCityToolNames.ListBuildArtifacts),
         Description(
             "Lists artifact files and directories produced by a build, including hidden " +
             "'.teamcity/...' entries (e.g. build settings digests). Optionally navigate into a " +
@@ -24,9 +24,18 @@ public partial class BuildTools
 
         try
         {
-            var pathSegment = string.IsNullOrWhiteSpace(path) ? string.Empty : $"/{path.TrimStart('/')}";
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                var segments = path.TrimStart('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+                if (segments.Any(s => s == ".."))
+                    return $"ERROR: Invalid path '{path}' — path traversal is not allowed.";
+            }
+
+            var pathSegment = string.IsNullOrWhiteSpace(path)
+                ? string.Empty
+                : $"/{string.Join('/', path.TrimStart('/').Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.EscapeDataString))}";
             var fields = "count,file(name,size,modificationTime,children)";
-            var url = $"app/rest/builds/id:{buildId}/artifacts/children{pathSegment}?locator=hidden:any&fields={Uri.EscapeDataString(fields)}";
+            var url = $"app/rest/builds/id:{Uri.EscapeDataString(buildId)}/artifacts/children{pathSegment}?locator=hidden:any&fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
 

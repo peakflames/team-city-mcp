@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_project"),
+    [McpServerTool(Name = TeamCityToolNames.GetProject),
         Description(
             "Gets details for a specific TeamCity project by ID, including its child projects, build configurations, " +
             "and build templates. Returns a markdown document with project metadata, a child projects table, a " +
@@ -23,7 +23,7 @@ public partial class ProjectTools
         try
         {
             var fields = "id,name,description,parentProject(id,name),projects(project(id,name)),buildTypes(buildType(id,name)),templates(buildType(id,name))";
-            var url = $"app/rest/projects/id:{projectId}?fields={Uri.EscapeDataString(fields)}";
+            var url = $"app/rest/projects/id:{Uri.EscapeDataString(projectId)}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
 

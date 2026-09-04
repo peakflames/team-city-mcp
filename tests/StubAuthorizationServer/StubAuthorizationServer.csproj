@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <!-- A stub only used by tests/local dev — keep it out of every publish and container path. -->
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TeamCityRemoteMcpServer.Tests" />
+  </ItemGroup>
+
+</Project>

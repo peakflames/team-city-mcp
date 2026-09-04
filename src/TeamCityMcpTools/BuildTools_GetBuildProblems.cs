@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build_problems"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildProblems),
         Description(
             "Gets dedicated build problem occurrences for a specific build (e.g. exit-code failures, " +
             "OOM, snapshot dependency failures) — distinct from test failures and from the problem " +
@@ -11,6 +11,9 @@ public partial class BuildTools
         [Description("The TeamCity build ID (numeric).")]
         string buildId)
     {
+        if (!TeamCityLocator.IsNumericId(buildId))
+            return $"ERROR: Invalid buildId '{buildId}' — must be numeric.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -44,7 +47,7 @@ public partial class BuildTools
             sb.AppendLine("# Build Problems");
             sb.AppendLine();
             sb.AppendLine($"**Build ID:** {buildId}");
-            sb.AppendLine($"**Count:** {problems.Count ?? 0}");
+            sb.AppendLine($"**Count:** {problems.ProblemOccurrence?.Count ?? 0}");
             sb.AppendLine();
 
             if (problems.ProblemOccurrence is not { Count: > 0 } occurrences)

@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class ProjectTools
 {
-    [McpServerTool(Name = "teamcity_get_project_parameters"),
+    [McpServerTool(Name = TeamCityToolNames.GetProjectParameters),
         Description(
             "Gets the configuration parameters defined on a TeamCity project — the same values shown in the " +
             "TeamCity project 'Parameters' admin page. Project parameters cascade to every build configuration " +
@@ -35,7 +35,7 @@ public partial class ProjectTools
         try
         {
             var fields = "count,property(name,value,inherited,type(rawValue))";
-            var url = $"app/rest/projects/id:{projectId}/parameters?fields={Uri.EscapeDataString(fields)}";
+            var url = $"app/rest/projects/id:{Uri.EscapeDataString(projectId)}/parameters?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
 

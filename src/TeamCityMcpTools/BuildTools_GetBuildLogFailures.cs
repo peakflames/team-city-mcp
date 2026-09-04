@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_build_log_failures"),
+    [McpServerTool(Name = TeamCityToolNames.GetBuildLogFailures),
         Description(
             "For a build's failed tests, finds and returns the console log context around each failure by " +
             "searching the build log for each failed test's name. Combines the test's failure details from the " +
@@ -35,6 +35,9 @@ public partial class BuildTools
             !string.Equals(detailsMode, "full", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(detailsMode, "none", StringComparison.OrdinalIgnoreCase))
             return $"ERROR: Unknown detailsMode '{detailsMode}'. Use 'compact', 'full', or 'none'.";
+
+        if (!TeamCityLocator.IsNumericId(buildId))
+            return $"ERROR: Invalid buildId '{buildId}' — must be numeric.";
 
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();

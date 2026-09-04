@@ -34,15 +34,14 @@ pip install psutil
 ```
 
 ### URLs (when running)
-- http://localhost:8080/mcp - MCP streamable HTTP endpoint
-- http://localhost:8080/sse - MCP SSE endpoint
+- http://localhost:8080/mcp - MCP streamable HTTP endpoint (stateless)
 
 ## Architecture
 
 ```
 src/
 ├── TeamCityMcpServer/        # Console app (stdio MCP transport)
-├── TeamCityRemoteMcpServer/  # ASP.NET app (HTTP/SSE MCP transport)
+├── TeamCityRemoteMcpServer/  # ASP.NET app (streamable HTTP MCP transport, stateless)
 └── TeamCityMcpTools/         # Shared library with MCP tools and TeamCity client
 ```
 
@@ -146,12 +145,19 @@ A successful build does NOT equal working code. The workflow should be:
 
 ## CRITICAL: appsettings.json Security
 
-**NEVER commit `src/TeamCityRemoteMcpServer/appsettings*.json`** — it may contain sensitive credentials.
+`src/TeamCityRemoteMcpServer/appsettings.json` and `appsettings.Development.json` are tracked and
+must contain **only non-secret defaults** — empty strings, `false`, or documented defaults for
+every `McpAuth`/`Rbac`/`TeamCityConfig` key, so the tracked file stays a safe, complete reference
+(see [docs/authentication.md](docs/authentication.md) and [docs/rbac.md](docs/rbac.md)).
 
-- Never use `git add` on this file
-- Never stage, reset, or checkout this file
-- Use explicit file paths in git commands to avoid accidentally including it
-- Always use environment variables (`TEAM_CITY_URL`, `TEAM_CITY_ACCESS_TOKEN`) for credentials
+**Every other `src/TeamCityRemoteMcpServer/appsettings*.json` variant is never committed** — it may
+contain a real issuer, client id, TeamCity URL, or token filled in for local testing.
+
+- Never use `git add` on any `appsettings*.json` variant other than the two tracked files above
+- Never stage, reset, or checkout an untracked `appsettings*.json` variant
+- Use explicit file paths in git commands to avoid accidentally including one
+- Always use environment variables (`TEAM_CITY_URL`, `TEAM_CITY_ACCESS_TOKEN`, `McpAuth__*`,
+  `Rbac__*`) for credentials and any deployment-specific value
 
 ## Debugging
 
@@ -168,10 +174,10 @@ Update version and container tag in `src/TeamCityRemoteMcpServer/TeamCityRemoteM
 
 When the user requests "perform a release":
 
-1. **Update CHANGELOG.md** — Change "Unreleased" to today's date, ensure all changes are documented
+1. **Update CHANGELOG.md** — Change "Unreleased" to `## [X.Y.Z] - YYYY-MM-DD`, ensure all changes are documented per [docs/changelog-generation-rules.md](docs/changelog-generation-rules.md)
 2. **Commit and push develop** — Add explicit files, commit with "Release version X.Y.Z" message, push
 3. **Merge to main** — `git checkout main && git pull && git merge develop --no-ff` with merge commit message, push
 4. **Tag and push** — `git tag -a vX.Y.Z -m "Release version X.Y.Z"`, push tag
 5. **Prepare next version** — Switch to develop, bump versions in `TeamCityRemoteMcpServer.csproj` (`Version` and `ContainerImageTag`), add "Unreleased" section to CHANGELOG.md, commit "prepare for next development cycle (X.Y.Z+1)", push
 
-Important: Use `--no-ff` for merges, explicit file paths in `git add`, never commit `appsettings*.json`
+Important: Use `--no-ff` for merges, explicit file paths in `git add`, never commit a filled-in `appsettings*.json` variant

@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_server_info"),
+    [McpServerTool(Name = TeamCityToolNames.ServerInfo),
         Description(
             "Gets TeamCity server version and instance metadata. " +
             "Returns a markdown document with version, build number, start time, current time, and server URL.")]

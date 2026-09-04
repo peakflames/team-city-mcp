@@ -2,7 +2,7 @@ namespace TeamCityMcpTools;
 
 public partial class BuildTools
 {
-    [McpServerTool(Name = "teamcity_get_test_history"),
+    [McpServerTool(Name = TeamCityToolNames.GetTestHistory),
         Description(
             "Follows a single test by name across builds, optionally scoped to a build type, showing " +
             "status/duration/branch per run. Useful for spotting flakiness or when a test started failing.")]
@@ -16,6 +16,9 @@ public partial class BuildTools
         [Description("Maximum number of test occurrences to return. Defaults to 25.")]
         int count = 25)
     {
+        if (!string.IsNullOrWhiteSpace(buildTypeId) && !TeamCityLocator.IsSafeId(buildTypeId))
+            return $"ERROR: Invalid buildTypeId '{buildTypeId}'.";
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<ITeamCityClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();
@@ -28,14 +31,14 @@ public partial class BuildTools
         {
             var locatorParts = new List<string>
             {
-                $"test:(name:{testName})",
+                $"test:(name:({TeamCityLocator.EscapeValue(testName)}))",
                 $"count:{count}"
             };
             if (!string.IsNullOrWhiteSpace(buildTypeId))
                 locatorParts.Add($"buildType:(id:{buildTypeId})");
 
             var locator = string.Join(",", locatorParts);
-            var fields = "count,testOccurrence(status,duration,build(id,number,branchName,buildType(name)))";
+            var fields = "count,testOccurrence(status,duration,build(id,number,branchName,buildType(id,name,projectId)))";
             var url = $"app/rest/testOccurrences?locator={Uri.EscapeDataString(locator)}&fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
@@ -48,7 +51,11 @@ public partial class BuildTools
             var json = await response.Content.ReadAsStringAsync();
             var tests = JsonSerializer.Deserialize(json, TeamCityJsonContext.Default.TestOccurrencesResponse);
 
-            if (tests?.TestOccurrence is not { Count: > 0 } occurrences)
+            var occurrences = (IReadOnlyList<TestOccurrence>?)tests?.TestOccurrence ?? [];
+            occurrences = await ToolGate.FilterByVisibleSetAsync(
+                _serviceProvider, TeamCityToolNames.GetTestHistory, occurrences, t => t.Build?.BuildType?.ProjectId);
+
+            if (occurrences.Count == 0)
                 return $"No test history found for '{testName}'" + (string.IsNullOrWhiteSpace(buildTypeId) ? "." : $" in build type '{buildTypeId}'.");
 
             var sb = new StringBuilder();
