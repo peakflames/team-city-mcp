@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <!-- Container Support -->
-    <Version>0.7.0</Version>
-    <ContainerImageTag>0.7.0</ContainerImageTag>
+    <Version>0.4.0</Version>
+    <ContainerImageTag>0.4.0</ContainerImageTag>
     <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
     <ContainerRepository>peakflames/teamcity-remote-mcp-server</ContainerRepository>
 
