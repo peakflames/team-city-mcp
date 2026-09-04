@@ -122,6 +122,7 @@ When contributing to this project:
 - Test against a real TeamCity instance before committing (mocks are not sufficient)
 - Test Docker builds locally before pushing tags
 - Update CHANGELOG.md under the "Unreleased" section for every change, following [docs/changelog-generation-rules.md](docs/changelog-generation-rules.md)
+- Update [docs/authentication.md](docs/authentication.md) / [docs/rbac.md](docs/rbac.md) when adding or changing an `McpAuth:` or `Rbac:` config key
 
 ## Submitting Changes
 

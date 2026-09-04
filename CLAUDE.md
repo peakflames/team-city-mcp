@@ -145,12 +145,19 @@ A successful build does NOT equal working code. The workflow should be:
 
 ## CRITICAL: appsettings.json Security
 
-**NEVER commit `src/TeamCityRemoteMcpServer/appsettings*.json`** — it may contain sensitive credentials.
+`src/TeamCityRemoteMcpServer/appsettings.json` and `appsettings.Development.json` are tracked and
+must contain **only non-secret defaults** — empty strings, `false`, or documented defaults for
+every `McpAuth`/`Rbac`/`TeamCityConfig` key, so the tracked file stays a safe, complete reference
+(see [docs/authentication.md](docs/authentication.md) and [docs/rbac.md](docs/rbac.md)).
 
-- Never use `git add` on this file
-- Never stage, reset, or checkout this file
-- Use explicit file paths in git commands to avoid accidentally including it
-- Always use environment variables (`TEAM_CITY_URL`, `TEAM_CITY_ACCESS_TOKEN`) for credentials
+**Every other `src/TeamCityRemoteMcpServer/appsettings*.json` variant is never committed** — it may
+contain a real issuer, client id, TeamCity URL, or token filled in for local testing.
+
+- Never use `git add` on any `appsettings*.json` variant other than the two tracked files above
+- Never stage, reset, or checkout an untracked `appsettings*.json` variant
+- Use explicit file paths in git commands to avoid accidentally including one
+- Always use environment variables (`TEAM_CITY_URL`, `TEAM_CITY_ACCESS_TOKEN`, `McpAuth__*`,
+  `Rbac__*`) for credentials and any deployment-specific value
 
 ## Debugging
 
@@ -173,4 +180,4 @@ When the user requests "perform a release":
 4. **Tag and push** — `git tag -a vX.Y.Z -m "Release version X.Y.Z"`, push tag
 5. **Prepare next version** — Switch to develop, bump versions in `TeamCityRemoteMcpServer.csproj` (`Version` and `ContainerImageTag`), add "Unreleased" section to CHANGELOG.md, commit "prepare for next development cycle (X.Y.Z+1)", push
 
-Important: Use `--no-ff` for merges, explicit file paths in `git add`, never commit `appsettings*.json`
+Important: Use `--no-ff` for merges, explicit file paths in `git add`, never commit a filled-in `appsettings*.json` variant

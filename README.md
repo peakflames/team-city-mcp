@@ -50,7 +50,7 @@ The server exposes the following tools for navigating TeamCity projects, inspect
 
 ## Projects
 
-- **TeamCityRemoteMcpServer**: ASP.NET Web API-based MCP server for server-based installations (Streamable HTTP transport, stateless)
+- **TeamCityRemoteMcpServer**: ASP.NET Web API-based MCP server for server-based installations (Streamable HTTP transport, stateless; optional OAuth 2.1 authentication and per-caller RBAC)
 - **TeamCityMcpServer**: Console-based MCP server for local workstation installations (stdio transport)
 
 ## Running via Docker & Linux Server (Recommended)
@@ -89,7 +89,9 @@ The server exposes the following tools for navigating TeamCity projects, inspect
 | `TEAM_CITY_URL` | Full URL of your TeamCity server (e.g. `https://teamcity.example.com`) | Yes |
 | `TEAM_CITY_ACCESS_TOKEN` | TeamCity access token for authentication | Yes |
 
-The server will fail to start if either variable is missing.
+The server will fail to start if either variable is missing. Both are still required when
+optional authentication and per-caller RBAC (below) are enabled — the server uses its own token to
+query TeamCity permissions on the caller's behalf.
 
 **How to create a TeamCity access token:**
 1. Log in to your TeamCity server
@@ -106,6 +108,15 @@ The server will fail to start if either variable is missing.
 3. **Tool Invocation**: When an MCP tool is called, the build type/configuration ID is passed as a function argument
 4. **Client Creation**: A TeamCity HTTP client is created using Bearer token authentication with the resolved credentials
 
+### Optional: Authentication and Per-Caller Access Control
+
+`TeamCityRemoteMcpServer` can optionally require a bearer token from an external OAuth 2.1
+authorization server, validating callers and publishing RFC 9728 protected-resource metadata at
+`/.well-known/oauth-protected-resource/mcp`. Layered on top, per-caller RBAC authorizes each tool
+call against the *calling* user's own TeamCity permissions instead of the server's shared access
+token. Both are off by default and behavior is unchanged unless you configure them — see
+[docs/authentication.md](docs/authentication.md) and [docs/rbac.md](docs/rbac.md).
+
 ## Configuring MCP Clients
 
 ### Claude Code (CLI)
@@ -115,6 +126,9 @@ Add the server using the streamable HTTP transport:
 ```bash
 claude mcp add --scope user --transport http teamcity-remote http://{{your-server-ip}}:8080/mcp
 ```
+
+If the server has [authentication](docs/authentication.md) enabled, the client performs an OAuth
+flow on first connect instead of connecting immediately — that's expected, not a broken command.
 
 ### Cline Configuration
 
@@ -146,6 +160,19 @@ claude mcp add --scope user --transport http teamcity-remote http://{{your-serve
 **Authentication errors (401):**
 - Verify the access token is valid and has not expired
 - Ensure the token has permission to read builds in TeamCity
+
+**401 from `/mcp` and the client never prompts to log in:**
+- Confirm the client supports RFC 9728 protected-resource discovery
+- `/mcp` is only protected when `McpAuth:Enabled=true` — see [docs/authentication.md](docs/authentication.md)
+
+**Server refuses to start with an `McpAuth` or `Rbac` validation message:**
+- These sections are validated at startup; see the validation-error tables in
+  [docs/authentication.md](docs/authentication.md#startup-validation-errors) and
+  [docs/rbac.md](docs/rbac.md#startup-validation-errors)
+
+**Every tool call is denied, or projects come back empty, with RBAC enabled:**
+- The caller's identity did not resolve, or they lack the required TeamCity permission — RBAC
+  fails closed by design; see [docs/rbac.md](docs/rbac.md#troubleshooting)
 
 ## Contributing
 
