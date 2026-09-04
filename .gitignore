@@ -496,3 +496,4 @@ src/TeamCityRemoteMcpServer/appsettings*.json
 
 # Local MCP client config — carries a real client_id and issuer for local testing
 .mcp.json
+*secrets.env
