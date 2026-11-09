@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `teamcity_get_build_type` now lists agent requirements (it previously always reported none) and
+  marks template-inherited ones *(inherited)*. Fixes #3
+
 ## [0.4.0] - 2026-09-04
 
 ### Added

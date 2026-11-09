@@ -53,7 +53,7 @@ public class BuildTypeDetails : BuildTypeSummary
     [JsonPropertyName("steps")]
     public StepsWrapper? Steps { get; set; }
 
-    [JsonPropertyName("agentRequirements")]
+    [JsonPropertyName("agent-requirements")]
     public AgentRequirementsWrapper? AgentRequirements { get; set; }
 
     [JsonPropertyName("snapshot-dependencies")]
@@ -182,7 +182,7 @@ public class AgentRequirementsWrapper
     [JsonPropertyName("count")]
     public int? Count { get; set; }
 
-    [JsonPropertyName("agentRequirement")]
+    [JsonPropertyName("agent-requirement")]
     public List<AgentRequirement>? AgentRequirement { get; set; }
 }
 
@@ -196,6 +196,9 @@ public class AgentRequirement
 
     [JsonPropertyName("disabled")]
     public bool? Disabled { get; set; }
+
+    [JsonPropertyName("inherited")]
+    public bool? Inherited { get; set; }
 
     [JsonPropertyName("properties")]
     public AgentRequirementPropertiesWrapper? Properties { get; set; }

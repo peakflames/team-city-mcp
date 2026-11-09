@@ -73,6 +73,30 @@ public sealed class FakeTeamCityHandler : HttpMessageHandler
         return this;
     }
 
+    /// <summary>Fakes the full-detail <c>GET app/rest/buildTypes/id:{buildTypeId}?fields=...</c> fetch.
+    /// Like real TeamCity, it honors the request's <c>fields</c> query: the <c>agent-requirements</c>
+    /// property in <paramref name="responseJson"/> is returned only when <c>fields</c> contains
+    /// <c>agent-requirements(</c>. TeamCity silently drops unknown field names (such as the camelCase
+    /// <c>agentRequirements(</c>), so a request that misspells it gets a response without the data.</summary>
+    public FakeTeamCityHandler OnBuildTypeDetails(string buildTypeId, string responseJson)
+    {
+        _routes.Add(new Route(
+            req => req.RequestUri!.AbsolutePath.EndsWith($"/app/rest/buildTypes/id:{buildTypeId}", StringComparison.Ordinal),
+            req =>
+            {
+                var query = QueryHelpers.ParseQuery(req.RequestUri!.Query);
+                var fields = query.TryGetValue("fields", out var f) ? f.ToString() : string.Empty;
+                var body = (System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse(responseJson)!;
+                if (!fields.Contains("agent-requirements(", StringComparison.Ordinal))
+                {
+                    body.Remove("agent-requirements");
+                }
+
+                return JsonResponse(body.ToJsonString());
+            }));
+        return this;
+    }
+
     /// <summary>Fakes <c>GET app/rest/vcs-roots/id:{vcsRootId}...</c>, resolving to the given
     /// project — the shape the vcsRoot pivot needs. Matches on path only, same caveat as
     /// <see cref="OnBuildType"/>.</summary>
