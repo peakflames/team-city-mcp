@@ -26,7 +26,7 @@ public partial class ProjectTools
 
         try
         {
-            var fields = "id,name,description,projectId,projectName,paused,webUrl,templateFlag,templates(buildType(id,name)),settings(property(name,value,inherited)),vcs-root-entries(vcs-root-entry(id,inherited,checkout-rules,vcs-root(id,name,vcsName))),triggers(trigger(id,type,inherited,properties(property(name,value)))),steps(step(id,name,type,disabled,inherited,properties(property(name,value)))),agentRequirements(agentRequirement(id,type,disabled,properties(property(name,value)))),snapshot-dependencies(snapshot-dependency(id,inherited,source-buildType(id,name,projectName))),artifact-dependencies(artifact-dependency(id,disabled,inherited,source-buildType(id,name,projectName),properties(property(name,value)))),features(feature(id,type,disabled,inherited))";
+            var fields = "id,name,description,projectId,projectName,paused,webUrl,templateFlag,templates(buildType(id,name)),settings(property(name,value,inherited)),vcs-root-entries(vcs-root-entry(id,inherited,checkout-rules,vcs-root(id,name,vcsName))),triggers(trigger(id,type,inherited,properties(property(name,value)))),steps(step(id,name,type,disabled,inherited,properties(property(name,value)))),agent-requirements(agent-requirement(id,type,disabled,inherited,properties(property(name,value)))),snapshot-dependencies(snapshot-dependency(id,inherited,source-buildType(id,name,projectName))),artifact-dependencies(artifact-dependency(id,disabled,inherited,source-buildType(id,name,projectName),properties(property(name,value)))),features(feature(id,type,disabled,inherited))";
             var url = $"app/rest/buildTypes/id:{Uri.EscapeDataString(buildTypeId)}?fields={Uri.EscapeDataString(fields)}";
 
             var response = await client.HttpClient.GetAsync(url);
@@ -247,7 +247,8 @@ public partial class ProjectTools
                 foreach (var req in agentReqs)
                 {
                     var disabled = req.Disabled == true ? " *(disabled)*" : "";
-                    sb.AppendLine($"### {req.Id ?? "Requirement"}{disabled}");
+                    var origin = req.Inherited == true ? " *(inherited)*" : "";
+                    sb.AppendLine($"### {req.Id ?? "Requirement"}{disabled}{origin}");
                     sb.AppendLine();
                     sb.AppendLine($"- **Type**: {req.Type ?? "—"}");
                     var reqProps = req.Properties?.Property;
