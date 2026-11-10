@@ -137,7 +137,10 @@ docker run -d \
   -e McpAuth__ValidateAudience=false \
   -e McpAuth__AllowedClientIds__0="0oaEXAMPLECLIENTID" \
   -e McpAuth__RequireScope=false \
-  -e McpAuth__AdvertiseScopes=false \
+  -e McpAuth__ScopesSupported__0=openid \
+  -e McpAuth__ScopesSupported__1=email \
+  -e McpAuth__ScopesSupported__2=profile \
+  -e McpAuth__ScopesSupported__3=offline_access \
   -e Rbac__Enabled=true \
   -e Rbac__IdentitySource=UserInfo \
   peakflames/teamcity-remote-mcp-server
@@ -153,6 +156,13 @@ Equivalent `appsettings.json` (in addition to the `McpAuth` block from that quic
   }
 }
 ```
+
+> [!IMPORTANT]
+> `/userinfo` only returns claims for scopes the caller's token actually carries. The
+> `ScopesSupported` list above (not `McpAuth__AdvertiseScopes=false`) is required here — without an
+> `openid`/`email` scope on the token, `/userinfo` returns no usable email and every RBAC check is
+> denied. See the [`AdvertiseScopes=false` fallback note](authentication.md#quick-start-an-authorization-server-without-per-resource-audiences-or-custom-scopes)
+> for why it's unsuitable when paired with `IdentitySource=UserInfo`.
 
 ## Rolling it out
 

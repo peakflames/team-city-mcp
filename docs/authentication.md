@@ -99,8 +99,9 @@ grant a custom scope — the shape of an Okta **org** authorization server.
 
 With `ValidateAudience` at its default `true`, every token is rejected — its `aud` will never equal
 `ResourceUri`. With `RequireScope` at its default `true`, every token is rejected again — the AS has
-no way to grant `teamcity:read`. And with `AdvertiseScopes` at its default `true`, a client asking
-for `teamcity:read` gets `invalid_scope` back from the AS before it ever reaches this server.
+no way to grant `teamcity:read`. And with `AdvertiseScopes`/`ScopesSupported` at their defaults, a
+client asking for `teamcity:read` gets `invalid_scope` back from the AS before it ever reaches this
+server.
 
 The substitute for audience binding is a client-id allowlist: it doesn't prove a token was minted
 *for* this resource, only that it was minted for an OAuth client you recognize.
@@ -119,7 +120,10 @@ docker run -d \
   -e McpAuth__ValidateAudience=false \
   -e McpAuth__AllowedClientIds__0="0oaEXAMPLECLIENTID" \
   -e McpAuth__RequireScope=false \
-  -e McpAuth__AdvertiseScopes=false \
+  -e McpAuth__ScopesSupported__0=openid \
+  -e McpAuth__ScopesSupported__1=email \
+  -e McpAuth__ScopesSupported__2=profile \
+  -e McpAuth__ScopesSupported__3=offline_access \
   peakflames/teamcity-remote-mcp-server
 ```
 
@@ -134,10 +138,22 @@ Equivalent `appsettings.json`:
     "ValidateAudience": false,
     "AllowedClientIds": [ "0oaEXAMPLECLIENTID" ],
     "RequireScope": false,
-    "AdvertiseScopes": false
+    "ScopesSupported": [ "openid", "email", "profile", "offline_access" ]
   }
 }
 ```
+
+This assumes your AS can still grant OIDC scopes, just nothing custom to this server — the common
+case, and the one required if you intend to pair this with
+[`Rbac:IdentitySource=UserInfo`](rbac.md#quick-start-rbac-with-identity-from-userinfo), since
+`/userinfo` only returns claims for scopes the token actually carries.
+
+> [!NOTE]
+> If your AS cannot grant *any* scope at all — not even standard OIDC ones — set
+> `McpAuth__AdvertiseScopes=false` instead of `ScopesSupported` above. This publishes an empty
+> `scopes_supported` rather than advertising scopes the AS would reject. Do not combine this with
+> `Rbac:IdentitySource=UserInfo`: without an `openid`/`email` scope on the token, `/userinfo` will
+> not return a usable email and every RBAC check will be denied.
 
 > [!WARNING]
 > **`ValidateAudience=false`** accepts any token your AS issued to an allowlisted client, for any
@@ -150,10 +166,8 @@ Equivalent `appsettings.json`:
 > scope no longer limits anything. Pair this with [RBAC](rbac.md), or every authenticated caller
 > gets the full reach of the server's own TeamCity access token.
 
-If your AS *can* grant OIDC scopes it just has none custom to this server, set `ScopesSupported` to
-what it can actually grant (e.g. `openid email profile offline_access`) instead of
-`AdvertiseScopes=false` — see [`ScopesSupported` replaces the default](#scopessupported-replaces-the-default-it-does-not-append)
-below.
+See [`ScopesSupported` replaces the default](#scopessupported-replaces-the-default-it-does-not-append)
+below for how the list above is bound.
 
 ### Verify
 
@@ -161,9 +175,10 @@ below.
 curl -s https://mcp.example.invalid/.well-known/oauth-protected-resource/mcp
 ```
 
-Confirm `scopes_supported` is `[]` (or your OIDC scope list) — a client requesting `teamcity:read`
-against an AS that cannot grant it fails the whole authorization request with `invalid_scope`
-before ever reaching this server.
+Confirm `scopes_supported` is `["openid", "email", "profile", "offline_access"]` (or `[]` if you
+used the `AdvertiseScopes=false` fallback) — a client requesting `teamcity:read` against an AS that
+cannot grant it fails the whole authorization request with `invalid_scope` before ever reaching
+this server.
 
 ## Configuration reference: `McpAuth`
 

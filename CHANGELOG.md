@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-09
+
+### Changed
+- Updated ModelContextProtocol SDK from 2.1.0 to 2.4.0
+
+### Fixed
+- `teamcity_get_build_type` no longer reports "No agent requirements configured" for build types
+  that have them; requirements are now listed, with template-inherited ones marked *(inherited)*
+  (#3)
+
 ## [0.4.0] - 2026-09-04
 
 ### Added
@@ -126,7 +136,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions workflow for automated Docker Hub publishing on version tag push
 - Environment variable support for secure credential management
 
-[Unreleased]: https://github.com/peakflames/team-city-mcp/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/peakflames/team-city-mcp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/peakflames/team-city-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/peakflames/team-city-mcp/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/peakflames/team-city-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/peakflames/team-city-mcp/compare/v0.1.0...v0.2.0
