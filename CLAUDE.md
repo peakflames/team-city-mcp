@@ -178,6 +178,7 @@ When the user requests "perform a release":
 2. **Commit and push develop** — Add explicit files, commit with "Release version X.Y.Z" message, push
 3. **Merge to main** — `git checkout main && git pull && git merge develop --no-ff` with merge commit message, push
 4. **Tag and push** — `git tag -a vX.Y.Z -m "Release version X.Y.Z"`, push tag
-5. **Prepare next version** — Switch to develop, bump versions in `TeamCityRemoteMcpServer.csproj` (`Version` and `ContainerImageTag`), add "Unreleased" section to CHANGELOG.md, commit "prepare for next development cycle (X.Y.Z+1)", push
+5. **Fast-forward develop to main** — `git checkout develop && git merge --ff-only main`, push. This makes the release merge commit and tag reachable from develop (`git describe` reports `vX.Y.Z-N`) without an extra merge commit. Run it before step 6, while develop has no commits beyond the step 2 release commit; if `--ff-only` refuses, stop and ask rather than creating a merge commit
+6. **Prepare next version** — On develop, bump versions in `TeamCityRemoteMcpServer.csproj` (`Version` and `ContainerImageTag`), add "Unreleased" section to CHANGELOG.md, commit "prepare for next development cycle (X.Y.Z+1)", push
 
-Important: Use `--no-ff` for merges, explicit file paths in `git add`, never commit a filled-in `appsettings*.json` variant
+Important: Use `--no-ff` for merges (the only exception is the `--ff-only` sync in step 5), explicit file paths in `git add`, never commit a filled-in `appsettings*.json` variant
